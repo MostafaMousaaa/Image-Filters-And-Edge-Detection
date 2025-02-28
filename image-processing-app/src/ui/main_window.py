@@ -11,7 +11,6 @@ import numpy as np
 import sys
 import os
 
-# Use relative imports instead of absolute imports
 from ..ui.widgets.image_display_widget import ImageDisplayWidget
 from ..ui.widgets.histogram_widget import HistogramWidget
 from ..ui.widgets.filter_controls_widget import FilterControlsWidget
@@ -265,8 +264,6 @@ class MainWindow(QMainWindow):
         # Frequency Domain tab
         self.setup_frequency_domain_tab()
         
-        # Hybrid Images tab
-        # self.setup_hybrid_images_tab()
         
         # Dual Image View tab
         self.setup_dual_image_tab()
@@ -278,7 +275,7 @@ class MainWindow(QMainWindow):
             self.sidebar.setTabIcon(2, QIcon(":/icons/edge.png"))
             self.sidebar.setTabIcon(3, QIcon(":/icons/threshold.png"))
             self.sidebar.setTabIcon(4, QIcon(":/icons/frequency.png"))
-            # self.sidebar.setTabIcon(5, QIcon(":/icons/hybrid.png"))
+            
         except:
             # Skip icons if not available
             pass
@@ -643,136 +640,6 @@ class MainWindow(QMainWindow):
         
         self.sidebar.addTab(freq_widget, "Frequency Domain")
 
-    # def setup_hybrid_images_tab(self):
-    #     hybrid_widget = QWidget()
-    #     hybrid_layout = QVBoxLayout(hybrid_widget)
-        
-    #     # Group box for hybrid images
-    #     hybrid_group = QGroupBox("Hybrid Images")
-    #     hybrid_inner_layout = QVBoxLayout()
-        
-    #     # Information message
-    #     info_label = QLabel("Hybrid images combine two images together. "
-    #                       "You need to load two separate images to use this feature.")
-    #     info_label.setWordWrap(True)
-    #     info_label.setStyleSheet("font-style: italic; color: #666;")
-    #     hybrid_inner_layout.addWidget(info_label)
-        
-    #     # Status of loaded images with icons
-    #     image_status_layout = QHBoxLayout()
-        
-    #     # First image status
-    #     first_img_status_layout = QVBoxLayout()
-    #     self.first_image_icon = QLabel()
-    #     self.first_image_icon.setFixedSize(32, 32)
-    #     self.first_image_icon.setPixmap(QIcon(":/icons/image.png").pixmap(32, 32))
-    #     self.first_image_status = QLabel("Not loaded")
-    #     self.first_image_status.setStyleSheet("color: #777;")
-    #     first_img_status_layout.addWidget(self.first_image_icon, 0, Qt.AlignmentFlag.AlignCenter)
-    #     first_img_status_layout.addWidget(self.first_image_status, 0, Qt.AlignmentFlag.AlignCenter)
-        
-    #     # Second image status
-    #     second_img_status_layout = QVBoxLayout()
-    #     self.second_image_icon = QLabel()
-    #     self.second_image_icon.setFixedSize(32, 32)
-    #     self.second_image_icon.setPixmap(QIcon(":/icons/image.png").pixmap(32, 32))
-    #     self.second_image_status = QLabel("Not loaded")
-    #     self.second_image_status.setStyleSheet("color: #777;")
-    #     second_img_status_layout.addWidget(self.second_image_icon, 0, Qt.AlignmentFlag.AlignCenter)
-    #     second_img_status_layout.addWidget(self.second_image_status, 0, Qt.AlignmentFlag.AlignCenter)
-        
-    #     # Add to status layout with a separator
-    #     image_status_layout.addLayout(first_img_status_layout)
-        
-    #     separator = QFrame()
-    #     separator.setFrameShape(QFrame.Shape.VLine)
-    #     separator.setFrameShadow(QFrame.Shadow.Sunken)
-    #     image_status_layout.addWidget(separator)
-        
-    #     image_status_layout.addLayout(second_img_status_layout)
-        
-    #     # Add status layout to main layout
-    #     hybrid_inner_layout.addLayout(image_status_layout)
-        
-    #     # Add preview section for second image
-    #     self.second_image_preview = QLabel()
-    #     self.second_image_preview.setMinimumSize(200, 150)
-    #     self.second_image_preview.setFrameShape(QFrame.Shape.Panel)
-    #     self.second_image_preview.setFrameShadow(QFrame.Shadow.Sunken)
-    #     self.second_image_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    #     self.second_image_preview.setStyleSheet("background-color: #f5f5f5;")
-        
-    #     # Create a group box for the preview
-    #     preview_group = QGroupBox("Second Image Preview")
-    #     preview_layout = QVBoxLayout(preview_group)
-    #     preview_layout.addWidget(self.second_image_preview)
-        
-    #     # Add the preview group to the layout
-    #     hybrid_inner_layout.addWidget(preview_group)
-        
-    #     # Alpha blending parameter with more professional slider
-    #     alpha_group = QGroupBox("Blending Parameters")
-    #     alpha_layout = QVBoxLayout(alpha_group)
-        
-    #     alpha_label = QLabel("Alpha Blending Factor:")
-        
-    #     alpha_slider_layout = QHBoxLayout()
-        
-    #     self.alpha_slider = QSlider(Qt.Orientation.Horizontal)
-    #     self.alpha_slider.setRange(0, 100)
-    #     self.alpha_slider.setValue(50)
-    #     self.alpha_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-    #     self.alpha_slider.setTickInterval(10)
-        
-    #     self.alpha_value = QLabel("0.50")
-    #     self.alpha_value.setMinimumWidth(40)
-    #     self.alpha_value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        
-    #     # Connect with a cleaner value display
-    #     self.alpha_slider.valueChanged.connect(
-    #         lambda v: self.alpha_value.setText(f"{v/100:.2f}")
-    #     )
-        
-    #     alpha_slider_layout.addWidget(self.alpha_slider)
-    #     alpha_slider_layout.addWidget(self.alpha_value)
-        
-    #     # Add labels for min/max
-    #     slider_labels_layout = QHBoxLayout()
-    #     slider_labels_layout.addWidget(QLabel("Image 1"))
-    #     slider_labels_layout.addStretch()
-    #     slider_labels_layout.addWidget(QLabel("Image 2"))
-        
-    #     alpha_layout.addWidget(alpha_label)
-    #     alpha_layout.addLayout(alpha_slider_layout)
-    #     alpha_layout.addLayout(slider_labels_layout)
-        
-    #     hybrid_inner_layout.addWidget(alpha_group)
-        
-    #     # Buttons section
-    #     buttons_group = QGroupBox("Actions")
-    #     buttons_layout = QVBoxLayout(buttons_group)
-        
-    #     # Load second image button (only needed here)
-    #     load_second_button = QPushButton("Load Second Image")
-    #     load_second_button.setIcon(QIcon(":/icons/open.png"))
-    #     load_second_button.clicked.connect(self.open_second_image)
-        
-    #     create_hybrid_button = QPushButton("Create Hybrid Image")
-    #     create_hybrid_button.setIcon(QIcon(":/icons/merge.png"))
-    #     create_hybrid_button.clicked.connect(self.create_hybrid_image)
-        
-    #     buttons_layout.addWidget(load_second_button)
-    #     buttons_layout.addWidget(create_hybrid_button)
-        
-    #     hybrid_inner_layout.addWidget(buttons_group)
-        
-    #     hybrid_group.setLayout(hybrid_inner_layout)
-    #     hybrid_layout.addWidget(hybrid_group)
-        
-    #     # Add stretch to push everything up
-    #     hybrid_layout.addStretch()
-        
-    #     self.sidebar.addTab(hybrid_widget, "Hybrid Images")
 
     def setup_dual_image_tab(self):
         """Create a new tab with a dual image view for comparing two images"""
@@ -852,63 +719,6 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 self.show_error_message(f"Error loading image: {str(e)}")
         
-    # def open_second_image(self):
-    #     file_name, _ = QFileDialog.getOpenFileName(
-    #         self, "Open Second Image", "", "Images (*.png *.jpg *.jpeg *.bmp);;All Files (*)"
-    #     )
-        
-    #     if file_name:
-    #         try:
-    #             self.second_image = load_image(file_name)
-    #             if self.second_image is None:
-    #                 self.show_error_message(f"Failed to load image: {file_name}")
-    #                 return
-                    
-    #             # Update status text with filename only
-    #             filename_only = os.path.basename(file_name)
-    #             self.second_image_status.setText(filename_only)
-    #             self.second_image_status.setStyleSheet("color: #000; font-weight: bold;")
-    #             self.show_status_message(f"Loaded second image: {filename_only}", 5000)
-                
-    #             # Update preview
-    #             self.update_second_image_preview()
-                
-    #             # Switch to the hybrid tab
-    #             self.sidebar.setCurrentIndex(5)  # Assuming hybrid tab is index 5
-                
-    #         except Exception as e:
-    #             self.show_error_message(f"Error loading second image: {str(e)}")
-
-    # def update_second_image_preview(self):
-    #     """Update the preview of the second image in the hybrid tab"""
-    #     if self.second_image is None:
-    #         return
-            
-    #     # Scale image to fit the preview area
-    #     height, width = self.second_image.shape[:2]
-    #     max_size = 150
-    #     scale_factor = max_size / max(height, width)
-    #     new_width = int(width * scale_factor)
-    #     new_height = int(height * scale_factor)
-        
-    #     # Resize image
-    #     resized = cv2.resize(self.second_image, (new_width, new_height))
-        
-    #     # Convert to RGB for display
-    #     if len(resized.shape) == 3:
-    #         rgb_image = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-    #         height, width, channels = rgb_image.shape
-    #         bytes_per_line = channels * width
-    #         q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
-    #     else:
-    #         # Grayscale image
-    #         height, width = resized.shape
-    #         q_image = QImage(resized.data, width, height, width, QImage.Format.Format_Grayscale8)
-            
-    #     # Set the pixmap
-    #     self.second_image_preview.setPixmap(QPixmap.fromImage(q_image))
-    #     self.second_image_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
     def save_image(self):
         if self.current_image is None:
             self.show_status_message("No image to save", 3000)
@@ -1113,17 +923,6 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Applied High Pass filter (method={method}, cutoff={cutoff})")
 
         self.update_image_display()
-
-    # def create_hybrid_image(self):
-    #     if self.original_image is None or self.second_image is None:
-    #         self.statusBar().showMessage("Need two images to create hybrid")
-    #         return
-        
-    #     alpha = self.alpha_slider.value() / 100
-    #     hybrid_image = create_hybrid_image(self.original_image, self.second_image, alpha)
-    #     self.current_image = hybrid_image
-    #     self.update_image_display()
-    #     self.statusBar().showMessage(f"Created hybrid image with alpha={alpha}")
 
     def open_image_for_dual_view(self, image_number):
         """Open an image for the dual view panel"""
