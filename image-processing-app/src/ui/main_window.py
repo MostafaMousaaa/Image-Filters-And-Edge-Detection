@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import sys
 import os
+import inspect
 
 from ..ui.widgets.image_display_widget import ImageDisplayWidget
 from ..ui.widgets.histogram_widget import HistogramWidget
@@ -41,6 +42,7 @@ class MainWindow(QMainWindow):
         # Image data
         self.original_image = None
         self.current_image = None
+        self.filtered_image = None  # variable used to store the filtered image instead of overwriting the "current_image".
         self.second_image = None  # For hybrid images
         
         # Initialize UI components
@@ -738,17 +740,31 @@ class MainWindow(QMainWindow):
     def update_image_display(self):
         if self.current_image is None:
             return
+        
+        caller_name = inspect.stack()[1].function  # used to get the name of the calling function. If it's "apply_filter", we use the filtered_image. Else, we use the current_image
+        if caller_name == "apply_filter":  # if "update_image_display" method is called from "apply_filter" method
+            if len(self.filtered_image.shape) == 3:  # colored image
+                # Convert OpenCV BGR to RGB for Qt
+                rgb_image = cv2.cvtColor(self.filtered_image, cv2.COLOR_BGR2RGB)
+                height, width, channels = rgb_image.shape
+                bytes_per_line = channels * width
+                q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
+            else:
+                # Grayscale image
+                height, width = self.filtered_image.shape
+                q_image = QImage(self.current_image.data, width, height, width, QImage.Format.Format_Grayscale8)
             
-        # Convert OpenCV BGR to RGB for Qt
-        if len(self.current_image.shape) == 3:
-            rgb_image = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2RGB)
-            height, width, channels = rgb_image.shape
-            bytes_per_line = channels * width
-            q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
         else:
-            # Grayscale image
-            height, width = self.current_image.shape
-            q_image = QImage(self.current_image.data, width, height, width, QImage.Format.Format_Grayscale8)
+            # Convert OpenCV BGR to RGB for Qt
+            if len(self.current_image.shape) == 3:
+                rgb_image = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2RGB)
+                height, width, channels = rgb_image.shape
+                bytes_per_line = channels * width
+                q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
+            else:
+                # Grayscale image
+                height, width = self.current_image.shape
+                q_image = QImage(self.current_image.data, width, height, width, QImage.Format.Format_Grayscale8)
             
         self.image_display.set_image(QPixmap.fromImage(q_image))
         self.update_histogram()
@@ -813,19 +829,19 @@ class MainWindow(QMainWindow):
         if noise_type == "Gaussian":
             mean = self.mean_slider.value()
             sigma = self.sigma_slider.value()
-            self.current_image = add_gaussian_noise(self.current_image, mean, sigma)
+            self.current_image = add_gaussian_noise(self.original_image, mean, sigma)
             self.statusBar().showMessage(f"Applied Gaussian noise (mean={mean}, sigma={sigma})")
             
         elif noise_type == "Salt & Pepper":
             salt_prob = self.salt_slider.value() / 1000
             pepper_prob = self.pepper_slider.value() / 1000
-            self.current_image = add_salt_and_pepper_noise(self.current_image, salt_prob, pepper_prob)
+            self.current_image = add_salt_and_pepper_noise(self.original_image, salt_prob, pepper_prob)
             self.statusBar().showMessage(f"Applied Salt & Pepper noise (salt={salt_prob}, pepper={pepper_prob})")
             
         elif noise_type == "Uniform":
             low = self.low_slider.value()
             high = self.high_slider.value()
-            self.current_image = add_uniform_noise(self.current_image, low, high)
+            self.current_image = add_uniform_noise(self.original_image, low, high)
             self.statusBar().showMessage(f"Applied Uniform noise (low={low}, high={high})")
 
         self.update_image_display()
@@ -839,14 +855,14 @@ class MainWindow(QMainWindow):
         kernel_size = self.kernel_size.value()
 
         if filter_type == "Average":
-            self.current_image = apply_low_pass_filter(self.current_image, kernel_size)
+            self.filtered_image = apply_low_pass_filter(self.current_image, filter_type, kernel_size)      #to do : self.filtered_image = ....
             self.statusBar().showMessage(f"Applied Average filter (kernel size={kernel_size})")
         elif filter_type == "Gaussian":
             sigma = self.filter_sigma.value()
-            self.current_image = apply_low_pass_filter(self.current_image, kernel_size, sigma)
+            self.filtered_image = apply_low_pass_filter(self.current_image, filter_type, kernel_size, sigma)
             self.statusBar().showMessage(f"Applied Gaussian filter (kernel size={kernel_size}, sigma={sigma})")
         elif filter_type == "Median":
-            self.current_image = apply_low_pass_filter(self.current_image, kernel_size)
+            self.filtered_image = apply_low_pass_filter(self.current_image, filter_type, kernel_size)
             self.statusBar().showMessage(f"Applied Median filter (kernel size={kernel_size})")
 
         self.update_image_display()
