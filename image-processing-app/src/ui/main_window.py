@@ -43,6 +43,7 @@ class MainWindow(QMainWindow):
         self.original_image = None
         self.current_image = None
         self.filtered_image = None  # variable used to store the filtered image instead of overwriting the "current_image".
+        self.noisy_image = None
         self.second_image = None  # For hybrid images
         
         # Initialize UI components
@@ -701,7 +702,7 @@ class MainWindow(QMainWindow):
                 if self.original_image is None:
                     self.show_error_message(f"Failed to load image: {file_name}")
                     return
-                    
+                self.original_image = cv2.resize(self.original_image, (300, 300))
                 self.current_image = self.original_image.copy()
                 self.update_image_display()
                 
@@ -752,7 +753,19 @@ class MainWindow(QMainWindow):
             else:
                 # Grayscale image
                 height, width = self.filtered_image.shape
-                q_image = QImage(self.current_image.data, width, height, width, QImage.Format.Format_Grayscale8)
+                q_image = QImage(self.filtered_image.data, width, height, width, QImage.Format.Format_Grayscale8)
+                
+        elif caller_name == "apply_noise":
+            if len(self.noisy_image.shape) == 3:  # colored image
+                # Convert OpenCV BGR to RGB for Qt
+                rgb_image = cv2.cvtColor(self.noisy_image, cv2.COLOR_BGR2RGB)
+                height, width, channels = rgb_image.shape
+                bytes_per_line = channels * width
+                q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
+            else:
+                # Grayscale image
+                height, width = self.noisy_image.shape
+                q_image = QImage(self.noisy_image.data, width, height, width, QImage.Format.Format_Grayscale8)
             
         else:
             # Convert OpenCV BGR to RGB for Qt
@@ -829,19 +842,19 @@ class MainWindow(QMainWindow):
         if noise_type == "Gaussian":
             mean = self.mean_slider.value()
             sigma = self.sigma_slider.value()
-            self.current_image = add_gaussian_noise(self.original_image, mean, sigma)
+            self.noisy_image = add_gaussian_noise(self.current_image, mean, sigma)
             self.statusBar().showMessage(f"Applied Gaussian noise (mean={mean}, sigma={sigma})")
             
         elif noise_type == "Salt & Pepper":
             salt_prob = self.salt_slider.value() / 1000
             pepper_prob = self.pepper_slider.value() / 1000
-            self.current_image = add_salt_and_pepper_noise(self.original_image, salt_prob, pepper_prob)
+            self.noisy_image = add_salt_and_pepper_noise(self.current_image, salt_prob, pepper_prob)
             self.statusBar().showMessage(f"Applied Salt & Pepper noise (salt={salt_prob}, pepper={pepper_prob})")
             
         elif noise_type == "Uniform":
             low = self.low_slider.value()
             high = self.high_slider.value()
-            self.current_image = add_uniform_noise(self.original_image, low, high)
+            self.noisy_image = add_uniform_noise(self.current_image, low, high)
             self.statusBar().showMessage(f"Applied Uniform noise (low={low}, high={high})")
 
         self.update_image_display()
@@ -855,14 +868,14 @@ class MainWindow(QMainWindow):
         kernel_size = self.kernel_size.value()
 
         if filter_type == "Average":
-            self.filtered_image = apply_low_pass_filter(self.current_image, filter_type, kernel_size)      #to do : self.filtered_image = ....
+            self.filtered_image = apply_low_pass_filter(self.noisy_image, filter_type, kernel_size)     
             self.statusBar().showMessage(f"Applied Average filter (kernel size={kernel_size})")
         elif filter_type == "Gaussian":
             sigma = self.filter_sigma.value()
-            self.filtered_image = apply_low_pass_filter(self.current_image, filter_type, kernel_size, sigma)
+            self.filtered_image = apply_low_pass_filter(self.noisy_image, filter_type, kernel_size, sigma)
             self.statusBar().showMessage(f"Applied Gaussian filter (kernel size={kernel_size}, sigma={sigma})")
         elif filter_type == "Median":
-            self.filtered_image = apply_low_pass_filter(self.current_image, filter_type, kernel_size)
+            self.filtered_image = apply_low_pass_filter(self.noisy_image, filter_type, kernel_size)
             self.statusBar().showMessage(f"Applied Median filter (kernel size={kernel_size})")
 
         self.update_image_display()

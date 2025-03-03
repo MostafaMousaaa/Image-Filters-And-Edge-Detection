@@ -34,15 +34,7 @@ def save_image(filepath, image):
     cv2.imwrite(filepath, image)
 
 def convert_to_grayscale(image):
-    """
-    Convert an image to grayscale.
     
-    Args:
-        image (numpy.ndarray): Input image
-        
-    Returns:
-        numpy.ndarray: Grayscale image
-    """
     if image is None:
         return None
         
