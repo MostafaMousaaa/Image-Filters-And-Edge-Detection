@@ -44,6 +44,7 @@ class MainWindow(QMainWindow):
         self.current_image = None
         self.filtered_image = None  # variable used to store the filtered image instead of overwriting the "current_image".
         self.noisy_image = None
+        self.shown_image = None  # carries the output displayed image 
         self.second_image = None  # For hybrid images
         
         # Initialize UI components
@@ -744,41 +745,24 @@ class MainWindow(QMainWindow):
         
         caller_name = inspect.stack()[1].function  # used to get the name of the calling function. If it's "apply_filter", we use the filtered_image. Else, we use the current_image
         if caller_name == "apply_filter":  # if "update_image_display" method is called from "apply_filter" method
-            if len(self.filtered_image.shape) == 3:  # colored image
-                # Convert OpenCV BGR to RGB for Qt
-                rgb_image = cv2.cvtColor(self.filtered_image, cv2.COLOR_BGR2RGB)
-                height, width, channels = rgb_image.shape
-                bytes_per_line = channels * width
-                q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
-            else:
-                # Grayscale image
-                height, width = self.filtered_image.shape
-                q_image = QImage(self.filtered_image.data, width, height, width, QImage.Format.Format_Grayscale8)
-                
+            self.shown_image = self.filtered_image
         elif caller_name == "apply_noise":
-            if len(self.noisy_image.shape) == 3:  # colored image
-                # Convert OpenCV BGR to RGB for Qt
-                rgb_image = cv2.cvtColor(self.noisy_image, cv2.COLOR_BGR2RGB)
-                height, width, channels = rgb_image.shape
-                bytes_per_line = channels * width
-                q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
-            else:
-                # Grayscale image
-                height, width = self.noisy_image.shape
-                q_image = QImage(self.noisy_image.data, width, height, width, QImage.Format.Format_Grayscale8)
+            self.shown_image = self.noisy_image
+        else: 
+            self.shown_image = self.current_image
             
-        else:
+        if len(self.shown_image.shape) == 3:  # colored image
             # Convert OpenCV BGR to RGB for Qt
-            if len(self.current_image.shape) == 3:
-                rgb_image = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2RGB)
-                height, width, channels = rgb_image.shape
-                bytes_per_line = channels * width
-                q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
-            else:
-                # Grayscale image
-                height, width = self.current_image.shape
-                q_image = QImage(self.current_image.data, width, height, width, QImage.Format.Format_Grayscale8)
-            
+            rgb_image = cv2.cvtColor(self.shown_image, cv2.COLOR_BGR2RGB)
+            height, width, channels = rgb_image.shape
+            bytes_per_line = channels * width
+            q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
+        else:
+            # Grayscale image
+            height, width = self.shown_image.shape
+            q_image = QImage(self.shown_image.data, width, height, width, QImage.Format.Format_Grayscale8)
+                
+        
         self.image_display.set_image(QPixmap.fromImage(q_image))
         self.update_histogram()
 
