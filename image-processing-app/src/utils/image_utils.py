@@ -33,53 +33,169 @@ def load_image(file_path):
 def save_image(filepath, image):
     cv2.imwrite(filepath, image)
 
-def convert_to_grayscale(image):
+
+class ImageProcessing:
+    """Custom image processing functions implemented from scratch"""
     
-    if image is None:
-        return None
+    @staticmethod
+    def convert_to_grayscale(image):
+        """
+        Convert a color image to grayscale using weighted RGB channels
         
-    # If already grayscale, return as is
-    if len(image.shape) == 2:
-        return image
+        Args:
+            image (np.ndarray): Input color image
+            
+        Returns:
+            np.ndarray: Grayscale image
+        """
+        if image is None:
+            return None
+            
+        # If already grayscale, return as is
+        if len(image.shape) == 2:
+            return image
         
-    # Convert to grayscale
-    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Using the standard RGB to grayscale conversion formula
+        # Y = 0.299*R + 0.587*G + 0.114*B
+        height, width, channels = image.shape
+        grayscale = np.zeros((height, width), dtype=np.uint8)
+        
+        # Extract BGR channels (OpenCV stores as BGR)
+        b = image[:, :, 0].astype(np.float32)
+        g = image[:, :, 1].astype(np.float32)
+        r = image[:, :, 2].astype(np.float32)
+        
+        # Apply conversion formula
+        grayscale = 0.299 * r + 0.587 * g + 0.114 * b
+        
+        # Convert back to uint8
+        return grayscale.astype(np.uint8)
+
+    @staticmethod
+    def normalize_image(image, target_min=0, target_max=255):
+        """
+        Normalize image intensity values to a specified range
+        
+        Args:
+            image (np.ndarray): Input image
+            target_min: Minimum value in output image
+            target_max: Maximum value in output image
+            
+        Returns:
+            np.ndarray: Normalized image
+        """
+        if image is None:
+            return None
+        
+        # Create a copy to avoid modifying the original
+        normalized = image.copy().astype(np.float32)
+        
+        # Get current min and max values
+        current_min = np.min(normalized)
+        current_max = np.max(normalized)
+        
+        # Check if normalization is needed
+        if current_min == current_max:
+            return np.full_like(image, target_min, dtype=np.uint8)
+        
+        # Apply min-max normalization
+        normalized = (normalized - current_min) * ((target_max - target_min) / (current_max - current_min)) + target_min
+        
+        # Clip values to ensure they are in range and convert to uint8
+        return np.clip(normalized, target_min, target_max).astype(np.uint8)
+
+    @staticmethod
+    def frequency_of_grey_levels(image):
+        """
+        Calculate the histogram (frequency of occurrence of each gray level)
+        
+        Args:
+            image: Input grayscale image
+            
+        Returns:
+            np.ndarray: Array containing frequency count for each gray level (0-255)
+        """
+        # Initialize frequency array
+        freq = np.zeros(shape=(256,), dtype=np.int32)
+        
+        # Count occurrences of each gray level
+        for gray_level in range(256):
+            freq[gray_level] = np.sum(image == gray_level)
+            
+        return freq
+
+    @staticmethod
+    def equalize_histogram(image):
+        """
+        Equalize the histogram of an image to improve contrast
+        
+        Args:
+            image: Input image
+            
+        Returns:
+            np.ndarray: Image with equalized histogram
+        """
+        if image is None:
+            return None
+        
+        # Check if image is color or grayscale
+        is_color = len(image.shape) == 3
+        
+        if is_color:
+            # Process color image by equalizing in YUV/YCrCb space
+            # Convert to YCrCb
+            ycrcb_image = cv2.cvtColor(image, cv2.COLOR_BGR2YCrCb)
+            
+            # Extract Y channel
+            y_channel = ycrcb_image[:,:,0]
+            
+            # Equalize Y channel
+            y_equalized = ImageProcessing._equalize_single_channel(y_channel)
+            
+            # Replace Y channel
+            ycrcb_image[:,:,0] = y_equalized
+            
+            # Convert back to BGR
+            return cv2.cvtColor(ycrcb_image, cv2.COLOR_YCrCb2BGR)
+        else:
+            # Process grayscale image directly
+            return ImageProcessing._equalize_single_channel(image)
+
+    @staticmethod
+    def _equalize_single_channel(channel):
+        """
+        Helper function to equalize a single channel using histogram equalization
+        
+        Args:
+            channel: Single channel image
+            
+        Returns:
+            np.ndarray: Equalized channel
+        """
+        # Get histogram frequencies
+        freq = ImageProcessing.frequency_of_grey_levels(channel)
+        
+        # Calculate probability mass function (PMF)
+        pmf = freq / channel.size
+        
+        # Calculate cumulative distribution function (CDF)
+        cdf = np.cumsum(pmf) * 255.0
+        
+        # Create lookup table for mapping
+        lookup_table = np.clip(np.round(cdf), 0, 255).astype(np.uint8)
+        
+        # Apply mapping to get equalized image
+        equalized_channel = lookup_table[channel]
+        
+        return equalized_channel
+
+
+# Replace OpenCV functions with our custom implementations
+def convert_to_grayscale(image):
+    return ImageProcessing.convert_to_grayscale(image)
 
 def normalize_image(image):
-    """
-    Normalize the image to the range [0, 255].
-    
-    Args:
-        image (numpy.ndarray): Input image
-        
-    Returns:
-        numpy.ndarray: Normalized image
-    """
-    if image is None:
-        return None
-    
-    # Normalize to [0, 255]
-    normalized = cv2.normalize(image, None, 0, 255, cv2.NORM_MINMAX)
-    return normalized.astype(np.uint8)
+    return ImageProcessing.normalize_image(image)
 
 def equalize_histogram(image):
-    """
-    Equalize the histogram of an image.
-    
-    Args:
-        image (numpy.ndarray): Input image
-        
-    Returns:
-        numpy.ndarray: Image with equalized histogram
-    """
-    if image is None:
-        return None
-    
-    # Check if image is grayscale
-    if len(image.shape) == 2:
-        return cv2.equalizeHist(image)
-    
-    # For color images, convert to YUV and equalize Y channel
-    yuv_image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
-    yuv_image[:,:,0] = cv2.equalizeHist(yuv_image[:,:,0])
-    return cv2.cvtColor(yuv_image, cv2.COLOR_YUV2BGR)
+    return ImageProcessing.equalize_histogram(image)

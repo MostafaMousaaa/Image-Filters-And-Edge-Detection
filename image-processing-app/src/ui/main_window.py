@@ -790,6 +790,7 @@ class MainWindow(QMainWindow):
     def normalize_image(self):
         if self.current_image is not None:
             self.current_image = normalize_image(self.current_image)
+            print("Normalized")
             self.update_image_display()
             self.statusBar().showMessage("Image normalized")
 
