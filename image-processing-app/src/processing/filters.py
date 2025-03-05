@@ -26,8 +26,7 @@ def average_filter(image, size=3):
                 
                 noisy_img[row][col] = filtered_pixel  
         
-    return noisy_img
-    
+    return noisy_img 
 
 def gaussian_filter_custom(image, size, sigma=1):
     noisy_img = np.copy(image)            

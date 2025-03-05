@@ -269,22 +269,18 @@ class EdgeDetection:
         if len(image.shape) == 3:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
-        # Create Gaussian kernel
         kernel = EdgeDetection.gaussian_kernel(kernel_size, sigma)
         
-        # Get image dimensions - fixed to handle both grayscale and color images
         if len(image.shape) == 3:
             rows, cols, _ = image.shape
         else:
             rows, cols = image.shape
             
         kernel_rows, kernel_cols = kernel.shape
-        
-        # Calculate output dimensions
+       
         output_rows = rows - kernel_rows + 1
         output_cols = cols - kernel_cols + 1
         
-        # Create output array
         output = np.zeros((output_rows, output_cols), dtype=np.float32)
         
         # Apply convolution
@@ -306,7 +302,6 @@ class EdgeDetection:
         Returns:
             Result of non-maximum suppression
         """
-        # Extract shape - fixed to handle both grayscale and color images
         if len(gradient_magnitude.shape) == 3:
             rows, cols, _ = gradient_magnitude.shape
         else:
@@ -314,10 +309,8 @@ class EdgeDetection:
             
         output = np.zeros((rows, cols), dtype=np.float32)
         
-        # Convert angle to degrees and take absolute value
         angle = np.degrees(gradient_direction) % 180
         
-        # For each pixel, check if it's a local maximum along the gradient direction
         for i in range(1, rows-1):
             for j in range(1, cols-1):
                 # Check pixel's neighbors based on gradient direction
