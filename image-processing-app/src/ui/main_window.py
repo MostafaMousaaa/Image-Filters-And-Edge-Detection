@@ -554,18 +554,14 @@ class MainWindow(QMainWindow):
         block_label = QLabel("Block Size:")
         self.block_size = QSpinBox()
         self.block_size.setRange(3, 99)
-        self.block_size.setSingleStep(2)  # Ensure odd numbers
+        self.block_size.setSingleStep(2)  # Ensure odd numbers so that there is a clear center pixel
         self.block_size.setValue(11)
         
         const_label = QLabel("Constant:")
-        self.constant = QSpinBox()
-        self.constant.setRange(-50, 50)
-        self.constant.setValue(2)
         
         local_layout.addWidget(block_label)
         local_layout.addWidget(self.block_size)
         local_layout.addWidget(const_label)
-        local_layout.addWidget(self.constant)
         
         self.local_params.hide()  # Initially hidden
         
@@ -904,9 +900,12 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Applied Global thresholding (threshold={threshold_value})")
         else:
             block_size = self.block_size.value()
-            constant = self.constant.value()
-            self.current_image = local_threshold(self.current_image, block_size, constant)
-            self.statusBar().showMessage(f"Applied Local thresholding (block size={block_size}, constant={constant})")
+            localResult = local_threshold(self.current_image, block_size)
+            if isinstance(localResult, str):
+                self.statusBar().showMessage(f"{localResult}")
+            else:
+                self.current_image = localResult
+                self.statusBar().showMessage(f"Applied Local thresholding (block size={block_size})")
 
         self.update_image_display()
 
