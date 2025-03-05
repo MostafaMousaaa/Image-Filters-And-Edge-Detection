@@ -93,11 +93,11 @@ class HistogramWidget(QWidget):
         ax = self.grayscale_figure.add_subplot(111)
         
         if len(self.image_data.shape) == 2:
-            histogram = [0] * 256
+            self.gray_histogram = [0] * 256
             for row in range(self.image_data.shape[0]):
                 for col in range(self.image_data.shape[1]):
-                    histogram[self.image_data[row][col]] += 1
-            ax.bar(range(256), histogram, color='black')
+                    self.gray_histogram[self.image_data[row][col]] += 1
+            ax.bar(range(256), self.gray_histogram, color='black')
             ax.set_title('Histogram', fontsize=12)
             ax.set_xlabel('Pixel Value', fontsize=10)
             ax.set_ylabel('Frequency', fontsize=10)
@@ -114,10 +114,10 @@ class HistogramWidget(QWidget):
         self.rgb_figure.clear()
         
         # Initialize histograms for each channel (Blue, Green, Red)
-        blue_histogram = [0] * 256
-        green_histogram = [0] * 256
-        red_histogram = [0] * 256
-        color_histograms = [blue_histogram, green_histogram, red_histogram]
+        self.blue_histogram = [0] * 256
+        self.green_histogram = [0] * 256
+        self.red_histogram = [0] * 256
+        color_histograms = [self.blue_histogram, self.green_histogram, self.red_histogram]
         
         axs = self.rgb_figure.subplots(3, 1, sharex=True)
 
@@ -127,17 +127,17 @@ class HistogramWidget(QWidget):
                         color_histograms[channel][self.image_data[row][col][channel]] += 1
         
         # Blue channel
-        axs[0].bar(range(256), blue_histogram, color='blue')
+        axs[0].bar(range(256), self.blue_histogram, color='blue')
         axs[0].set_title('Blue Channel', fontsize=12)
         axs[0].set_ylabel('Frequency', fontsize=10)
         
         # Green channel
-        axs[1].bar(range(256), green_histogram, color='green')
+        axs[1].bar(range(256), self.green_histogram, color='green')
         axs[1].set_title('Green Channel', fontsize=12)
         axs[1].set_ylabel('Frequency', fontsize=10)
         
         # Red channel
-        axs[2].bar(range(256), red_histogram, color='red')
+        axs[2].bar(range(256), self.red_histogram, color='red')
         axs[2].set_title('Red Channel', fontsize=12)
         axs[2].set_xlabel('Pixel Value', fontsize=10)
         axs[2].set_ylabel('Frequency', fontsize=10)
@@ -153,51 +153,76 @@ class HistogramWidget(QWidget):
         self.dist_figure.clear()
         
         if len(self.image_data.shape) == 3:
-            # Create subplots for R, G, B channels' CDFs
-            r_channel = self.image_data[:, :, 0]
+            # Split image into BGR channels
+            b_channel = self.image_data[:, :, 0]
             g_channel = self.image_data[:, :, 1]
-            b_channel = self.image_data[:, :, 2]
-            
+            r_channel = self.image_data[:, :, 2]
+
+            # Create subplots for each channel's CDF
             axs = self.dist_figure.subplots(3, 1, sharex=True)
             
+            def calculate_cdf(histogram, channel):
+                total_pixels = channel.size  # Total number of pixels in the channel
+                
+                # Calculate CDF manually (cumulative sum)
+                cdf = [0] * 256
+                cumulative_sum = 0
+                
+                # Build the cumulative sum (CDF)
+                for i in range(256):
+                    cumulative_sum += histogram[i]
+                    cdf[i] = cumulative_sum / total_pixels  # Normalize by total pixels
+                
+                return cdf
+
             # Red channel CDF
-            hist_r = cv2.calcHist([r_channel], [0], None, [256], [0, 256])
-            cdf_r = hist_r.cumsum() / hist_r.sum()
-            axs[0].plot(cdf_r, color='red')
-            axs[0].set_title('Red Channel CDF', fontsize=12)
+            cdf_b = calculate_cdf(self.blue_histogram, b_channel)
+            axs[0].plot(cdf_b, color='blue')
+            axs[0].set_title('Blue Channel CDF', fontsize=12)
             axs[0].set_ylabel('Cumulative %', fontsize=10)
             axs[0].grid(True, alpha=0.3)
-            
+
             # Green channel CDF
-            hist_g = cv2.calcHist([g_channel], [0], None, [256], [0, 256])
-            cdf_g = hist_g.cumsum() / hist_g.sum()
+            cdf_g = calculate_cdf(self.green_histogram, g_channel)
             axs[1].plot(cdf_g, color='green')
             axs[1].set_title('Green Channel CDF', fontsize=12)
             axs[1].set_ylabel('Cumulative %', fontsize=10)
             axs[1].grid(True, alpha=0.3)
-            
+
             # Blue channel CDF
-            hist_b = cv2.calcHist([b_channel], [0], None, [256], [0, 256])
-            cdf_b = hist_b.cumsum() / hist_b.sum()
-            axs[2].plot(cdf_b, color='blue')
-            axs[2].set_title('Blue Channel CDF', fontsize=12)
+            cdf_r = calculate_cdf(self.red_histogram, r_channel)
+            axs[2].plot(cdf_r, color='red')
+            axs[2].set_title('Red Channel CDF', fontsize=12)
             axs[2].set_xlabel('Pixel Value', fontsize=10)
             axs[2].set_ylabel('Cumulative %', fontsize=10)
             axs[2].grid(True, alpha=0.3)
-            
+
+            # Adjust layout to fit everything nicely
             self.dist_figure.subplots_adjust(hspace=0.5, top=0.95, bottom=0.1, left=0.15, right=0.95)
             
         else:
             # Grayscale CDF
             ax = self.dist_figure.add_subplot(111)
-            hist = cv2.calcHist([self.image_data], [0], None, [256], [0, 256])
-            cdf = hist.cumsum() / hist.sum()
+            
+            total_pixels = self.image_data.size  # Total number of pixels in the image
+                        
+            # Calculate CDF manually (cumulative sum)
+            cdf = [0] * 256
+            cumulative_sum = 0
+            
+            # Build the cumulative sum (CDF)
+            for i in range(256):
+                cumulative_sum += self.gray_histogram[i]
+                cdf[i] = cumulative_sum / total_pixels  # Normalize by total pixels
+            
+            # Plot the CDF for grayscale image
             ax.plot(cdf, color='black')
-            ax.set_title('Cumulative Distribution Function', fontsize=12)
+            ax.set_title('Grayscale CDF', fontsize=12)
             ax.set_xlabel('Pixel Value', fontsize=10)
             ax.set_ylabel('Cumulative %', fontsize=10)
             ax.grid(True, alpha=0.3)
             
             self.dist_figure.subplots_adjust(top=0.9, bottom=0.15, left=0.15, right=0.95)
-        
+
+        # Redraw the canvas
         self.dist_canvas.draw()
