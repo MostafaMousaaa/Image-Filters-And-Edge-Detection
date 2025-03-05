@@ -1003,7 +1003,7 @@ class MainWindow(QMainWindow):
                          <p>A comprehensive tool for exploring image processing algorithms.</p>
                          <p>Created as a project for Computer Vision course.</p>
                          <p><b>Team Members:</b><br>
-                         [List team member names here]</p>""")
+                         [Mostafa Mousa - Rashed Mamdouh - Zyad Amr - Mostafa Ayman]</p>""")
         
     def animate_widget(self, widget):
         """Create a highlight animation effect for a widget"""

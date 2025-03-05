@@ -40,7 +40,7 @@ class ImageProcessing:
     @staticmethod
     def convert_to_grayscale(image):
         if image is None:
-        return None
+            return None
         
         # If image is already grayscale, return it as it is
         if len(image.shape) == 2:
