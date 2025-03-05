@@ -22,7 +22,7 @@ from ..processing.filters import apply_low_pass_filter
 from ..processing.edge_detection import (sobel_edge_detection, roberts_edge_detection, 
                                         prewitt_edge_detection, canny_edge_detection)
 from ..processing.thresholding import global_threshold, local_threshold
-from ..processing.frequency_domain import apply_low_pass_filter as apply_freq_lpf
+from ..processing.frequency_domain import gaussian_low_pass_filter
 from ..processing.frequency_domain import apply_high_pass_filter as apply_freq_hpf
 from ..processing.hybrid_images import create_hybrid_image
 from ..ui.icons import icons
@@ -557,11 +557,9 @@ class MainWindow(QMainWindow):
         self.block_size.setSingleStep(2)  # Ensure odd numbers so that there is a clear center pixel
         self.block_size.setValue(11)
         
-        const_label = QLabel("Constant:")
         
         local_layout.addWidget(block_label)
         local_layout.addWidget(self.block_size)
-        local_layout.addWidget(const_label)
         
         self.local_params.hide()  # Initially hidden
         
@@ -595,20 +593,22 @@ class MainWindow(QMainWindow):
         # Filter type (Low Pass vs High Pass)
         type_label = QLabel("Filter Type:")
         self.freq_filter_type = QButtonGroup()
-        low_pass_radio = QRadioButton("Low Pass")
-        high_pass_radio = QRadioButton("High Pass")
-        low_pass_radio.setChecked(True)
-        self.freq_filter_type.addButton(low_pass_radio, 0)  # 0 for Low Pass
-        self.freq_filter_type.addButton(high_pass_radio, 1)  # 1 for High Pass
+        self.low_pass_radio = QRadioButton("Low Pass")
+        self.high_pass_radio = QRadioButton("High Pass")
+        self.low_pass_radio.setChecked(True)
+        self.freq_filter_type.addButton(self.low_pass_radio, 0)  # 0 for Low Pass
+        self.freq_filter_type.addButton(self.high_pass_radio, 1)  # 1 for High Pass
+        self.freq_filter_type.buttonClicked.connect(self.on_filter_type_changed)
         
         freq_inner_layout.addWidget(type_label)
-        freq_inner_layout.addWidget(low_pass_radio)
-        freq_inner_layout.addWidget(high_pass_radio)
+        freq_inner_layout.addWidget(self.low_pass_radio)
+        freq_inner_layout.addWidget(self.high_pass_radio)
         
         # Filter method (Ideal vs Butterworth)
         method_label = QLabel("Filter Method:")
         self.freq_method_combo = QComboBox()
-        self.freq_method_combo.addItems(["Ideal", "Butterworth"])
+        self.freq_method_combo.addItems(["Gaussian", "Butterworth"])
+        self.freq_method_combo.currentIndexChanged.connect(self.on_combobox_changed)
         freq_inner_layout.addWidget(method_label)
         freq_inner_layout.addWidget(self.freq_method_combo)
         
@@ -637,7 +637,20 @@ class MainWindow(QMainWindow):
         
         self.sidebar.addTab(freq_widget, "Frequency Domain")
 
+    def on_filter_type_changed(self, button):
+        selected_button = button.text()
+        if selected_button == "Low Pass":
+            self.freq_method_combo.setCurrentIndex(0)
+        elif selected_button == "High Pass":
+            self.freq_method_combo.setCurrentIndex(1)
 
+    def on_combobox_changed(self, index):
+        selected_text = self.freq_method_combo.currentText()
+        if selected_text == "Gaussian":
+            self.low_pass_radio.setChecked(True)
+        elif selected_text == "Butterworth":
+            self.high_pass_radio.setChecked(True)
+    
     def setup_dual_image_tab(self):
         """Create a new tab with a dual image view for comparing two images"""
         # Create dual image view widget
@@ -763,7 +776,6 @@ class MainWindow(QMainWindow):
                 # Process each channel
                 b, g, r = cv2.split(self.current_image)
                 self.histogram_widget.set_image_data(r)  # Just show red channel for now
-                # Future improvement: add color histogram display
 
     def reset_to_original(self):
         if self.original_image is not None:
@@ -925,8 +937,8 @@ class MainWindow(QMainWindow):
         cutoff = self.cutoff_slider.value()
 
         if filter_type == 0:  # Low Pass
-            self.current_image = apply_freq_lpf(self.current_image, method, cutoff)
-            self.statusBar().showMessage(f"Applied Low Pass filter (method={method}, cutoff={cutoff})")
+            self.current_image = gaussian_low_pass_filter(self.current_image, cutoff)
+            self.statusBar().showMessage("Applied Gaussian Low Pass filter")
         else:  # High Pass
             self.current_image = apply_freq_hpf(self.current_image, method, cutoff)
             self.statusBar().showMessage(f"Applied High Pass filter (method={method}, cutoff={cutoff})")

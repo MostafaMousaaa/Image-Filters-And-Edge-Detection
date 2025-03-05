@@ -70,7 +70,6 @@ class HistogramWidget(QWidget):
         layout.addWidget(self.dist_canvas)
     
     def set_image_data(self, image_data):
-        """Set the image data and update all histogram displays"""
         if image_data is None:
             return
             
@@ -79,14 +78,15 @@ class HistogramWidget(QWidget):
         
         self.image_data = image_data
         self.is_color = len(image_data.shape) == 3 and image_data.shape[2] == 3
+
         self.update_grayscale_histogram()
+        
         if self.is_color:
             self.update_rgb_histogram()
             
         self.update_distribution_function()
     
     def update_grayscale_histogram(self):
-        """Update the grayscale histogram display"""
         if self.image_data is None:
             return
             
@@ -113,7 +113,6 @@ class HistogramWidget(QWidget):
         self.grayscale_canvas.draw()
     
     def update_rgb_histogram(self):
-        """Update the RGB histogram display"""
         if not self.is_color or self.image_data is None:
             return
             
@@ -147,7 +146,6 @@ class HistogramWidget(QWidget):
         self.rgb_canvas.draw()
     
     def update_distribution_function(self):
-        """Update the distribution function (CDF) display"""
         if self.image_data is None:
             return
             
