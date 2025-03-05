@@ -115,6 +115,10 @@ class ImageProcessing:
         Returns:
             np.ndarray: Array containing frequency count for each gray level (0-255)
         """
+        # Convert to grayscale if color image
+        if len(image.shape) == 3:
+            image = ImageProcessing.convert_to_grayscale(image)
+            
         # Initialize frequency array
         freq = np.zeros(shape=(256,), dtype=np.int32)
         

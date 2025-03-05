@@ -22,7 +22,12 @@ class EdgeDetection:
         if(len(image.shape) == 3):
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         
-        rows, cols = image.shape
+        # Extract shape - fixed to handle both grayscale and color images
+        if len(image.shape) == 3:
+            rows, cols, _ = image.shape
+        else:
+            rows, cols = image.shape
+            
         kernel_rows, kernel_cols = gx.shape
         output_rows, output_cols = rows, cols
         if kernel_rows % 2 == 0:
@@ -267,8 +272,12 @@ class EdgeDetection:
         # Create Gaussian kernel
         kernel = EdgeDetection.gaussian_kernel(kernel_size, sigma)
         
-        # Get image dimensions
-        rows, cols = image.shape
+        # Get image dimensions - fixed to handle both grayscale and color images
+        if len(image.shape) == 3:
+            rows, cols, _ = image.shape
+        else:
+            rows, cols = image.shape
+            
         kernel_rows, kernel_cols = kernel.shape
         
         # Calculate output dimensions
@@ -297,7 +306,12 @@ class EdgeDetection:
         Returns:
             Result of non-maximum suppression
         """
-        rows, cols = gradient_magnitude.shape
+        # Extract shape - fixed to handle both grayscale and color images
+        if len(gradient_magnitude.shape) == 3:
+            rows, cols, _ = gradient_magnitude.shape
+        else:
+            rows, cols = gradient_magnitude.shape
+            
         output = np.zeros((rows, cols), dtype=np.float32)
         
         # Convert angle to degrees and take absolute value
@@ -365,8 +379,12 @@ class EdgeDetection:
         Returns:
             Final edge image
         """
-        rows, cols = strong_edges.shape
-        
+        # Extract shape - fixed to handle both grayscale and color images
+        if len(strong_edges.shape) == 3:
+            rows, cols, _ = strong_edges.shape
+        else:
+            rows, cols = strong_edges.shape
+            
         # Create a combined image with both strong and weak edges
         edges = strong_edges.copy()
         weak_i, weak_j = np.where(weak_edges == 50)
