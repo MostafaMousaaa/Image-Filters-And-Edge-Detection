@@ -35,7 +35,7 @@ class SplashScreen(QSplashScreen):
         layout.setContentsMargins(20, 20, 20, 20)
         
         # App title
-        self.title_label = QLabel("Computer Vision Assignment 1\n Image Filters And Edge Detection\n")
+        self.title_label = QLabel("Computer Vision Task 1\n Image Filters And Edge Detection")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title_label.setStyleSheet("""
             color: #ffffff;
@@ -44,8 +44,35 @@ class SplashScreen(QSplashScreen):
         """)
         layout.addWidget(self.title_label)
         
-        # Spacer
-        layout.addSpacing(40)
+        # Team members label with stylized presentation
+        self.team_label = QLabel("Developed by:")
+        self.team_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.team_label.setStyleSheet("""
+            color: #0a84ff;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 10px;
+        """)
+        layout.addWidget(self.team_label)
+        
+        # Team members names with elegant styling
+        team_members = [
+            "Mostafa Mousa",
+            "Rashed Mamdouh",
+            "Zeyad Amr",
+            "Mostafa Ayman"
+        ]
+        
+        team_html = '<div style="text-align: center;">'
+        for i, member in enumerate(team_members):
+            # Alternate colors for better visual separation
+            color = "#ffffff" if i % 2 == 0 else "#e6e6e6"
+            team_html += f'<div style="color: {color}; margin: 3px 0; font-size: 14px;">{member}</div>'
+        team_html += '</div>'
+        
+        self.members_label = QLabel(team_html)
+        self.members_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.members_label)
         
         # Loading label
         self.loading_label = QLabel("Loading Application...")
@@ -53,6 +80,7 @@ class SplashScreen(QSplashScreen):
         self.loading_label.setStyleSheet("""
             color: #0a84ff;
             font-size: 16px;
+            margin-top: 20px;
         """)
         layout.addWidget(self.loading_label)
         
@@ -96,7 +124,7 @@ class SplashScreen(QSplashScreen):
             color: #636366;
             font-size: 10px;
         """)
-        layout.addSpacing(50)
+        layout.addSpacing(20)
         layout.addWidget(self.version_label)
         
         # Create a container widget to hold the layout
