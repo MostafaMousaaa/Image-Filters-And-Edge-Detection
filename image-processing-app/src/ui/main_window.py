@@ -769,14 +769,7 @@ class MainWindow(QMainWindow):
 
     def update_histogram(self):
         if self.current_image is not None:
-            # For grayscale
-            if len(self.current_image.shape) == 2:
-                self.histogram_widget.set_image_data(self.current_image)
-            # For color images
-            else:
-                # Process each channel
-                b, g, r = cv2.split(self.current_image)
-                self.histogram_widget.set_image_data(r)  # Just show red channel for now
+            self.histogram_widget.set_image_data(self.current_image)
 
     def reset_to_original(self):
         if self.original_image is not None:
