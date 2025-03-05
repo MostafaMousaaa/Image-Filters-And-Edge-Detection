@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QSplashScreen, QProgressBar, QVBoxLayout, QLabel, QWidget
+from PyQt6.QtWidgets import QSplashScreen, QProgressBar, QVBoxLayout, QLabel, QWidget, QHBoxLayout, QGridLayout
 from PyQt6.QtGui import QPixmap, QFont, QPainter, QColor, QBrush, QLinearGradient
 from PyQt6.QtCore import Qt, QTimer, QSize
 
@@ -35,7 +35,7 @@ class SplashScreen(QSplashScreen):
         layout.setContentsMargins(20, 20, 20, 20)
         
         # App title
-        self.title_label = QLabel("Computer Vision Assignment 1\n Image Filters And Edge Detection\n")
+        self.title_label = QLabel("Computer Vision Task 1\n Image Filters And Edge Detection")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title_label.setStyleSheet("""
             color: #ffffff;
@@ -44,8 +44,57 @@ class SplashScreen(QSplashScreen):
         """)
         layout.addWidget(self.title_label)
         
-        # Spacer
-        layout.addSpacing(40)
+        # Team members label with stylized presentation
+        self.team_label = QLabel("Developed by:")
+        self.team_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.team_label.setStyleSheet("""
+            color: #0a84ff;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        """)
+        layout.addWidget(self.team_label)
+        
+        # Create a grid layout for team members in two columns
+        team_grid = QGridLayout()
+        team_grid.setSpacing(10)
+        
+        # Team members names
+        team_members = [
+            "Mostafa Mousa",
+            "Rashed Mamdouh",
+            "Zeyad Amr",
+            "Mostafa Ayman"
+        ]
+        
+        # Create labels for each team member with alternating colors
+        # First column
+        name1_label = QLabel(team_members[0])
+        name1_label.setStyleSheet("color: #ffffff; font-size: 14px;")
+        name1_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        team_grid.addWidget(name1_label, 0, 0)
+        
+        name2_label = QLabel(team_members[1])
+        name2_label.setStyleSheet("color: #e6e6e6; font-size: 14px;")
+        name2_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        team_grid.addWidget(name2_label, 1, 0)
+        
+        # Second column
+        name3_label = QLabel(team_members[2])
+        name3_label.setStyleSheet("color: #ffffff; font-size: 14px;")
+        name3_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        team_grid.addWidget(name3_label, 0, 1)
+        
+        name4_label = QLabel(team_members[3])
+        name4_label.setStyleSheet("color: #e6e6e6; font-size: 14px;")
+        name4_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        team_grid.addWidget(name4_label, 1, 1)
+        
+        # Add the team grid to a container widget
+        team_container = QWidget()
+        team_container.setLayout(team_grid)
+        layout.addWidget(team_container)
         
         # Loading label
         self.loading_label = QLabel("Loading Application...")
@@ -53,6 +102,7 @@ class SplashScreen(QSplashScreen):
         self.loading_label.setStyleSheet("""
             color: #0a84ff;
             font-size: 16px;
+            margin-top: 20px;
         """)
         layout.addWidget(self.loading_label)
         
@@ -96,7 +146,7 @@ class SplashScreen(QSplashScreen):
             color: #636366;
             font-size: 10px;
         """)
-        layout.addSpacing(50)
+        layout.addSpacing(20)
         layout.addWidget(self.version_label)
         
         # Create a container widget to hold the layout
@@ -144,3 +194,4 @@ class SplashScreen(QSplashScreen):
             # Loading complete
             self.timer.stop()
             self.status_label.setText("Ready")
+
