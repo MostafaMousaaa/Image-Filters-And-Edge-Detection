@@ -23,7 +23,7 @@ from ..processing.edge_detection import (sobel_edge_detection, roberts_edge_dete
                                         prewitt_edge_detection, canny_edge_detection)
 from ..processing.thresholding import global_threshold, local_threshold
 from ..processing.frequency_domain import gaussian_low_pass_filter
-from ..processing.frequency_domain import apply_high_pass_filter as apply_freq_hpf
+from ..processing.frequency_domain import butterworth_high_pass_filter
 from ..processing.hybrid_images import create_hybrid_image
 from ..ui.icons import icons
 
@@ -933,15 +933,14 @@ class MainWindow(QMainWindow):
             return
         
         filter_type = self.freq_filter_type.checkedId()
-        method = self.freq_method_combo.currentText()
         cutoff = self.cutoff_slider.value()
 
         if filter_type == 0:  # Low Pass
             self.current_image = gaussian_low_pass_filter(self.current_image, cutoff)
             self.statusBar().showMessage("Applied Gaussian Low Pass filter")
         else:  # High Pass
-            self.current_image = apply_freq_hpf(self.current_image, method, cutoff)
-            self.statusBar().showMessage(f"Applied High Pass filter (method={method}, cutoff={cutoff})")
+            self.current_image = butterworth_high_pass_filter(self.current_image, cutoff)
+            self.statusBar().showMessage("Applied Butterworth High Pass filter")
 
         self.update_image_display()
 
