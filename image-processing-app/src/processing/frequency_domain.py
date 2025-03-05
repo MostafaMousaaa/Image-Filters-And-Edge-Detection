@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-def gaussian_low_pass_filter(image, sigma=10):
+def gaussian_low_pass_filter(image, sigma=30):
     # Check if the image is colored or grayscale
     is_gray = len(image.shape) == 2
 
@@ -55,7 +55,7 @@ def gaussian_low_pass_filter(image, sigma=10):
 
     return filtered_image
 
-def butterworth_high_pass_filter(image, cutoff_frequency=30, order=2):
+def butterworth_high_pass_filter(image, cutoff_frequency=10, order=2):
     # Check if the image is grayscale or color
     is_gray = len(image.shape) == 2
 
