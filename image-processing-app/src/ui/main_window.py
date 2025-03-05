@@ -42,6 +42,7 @@ class MainWindow(QMainWindow):
         # Image data
         self.original_image = None
         self.current_image = None
+        self.first_image = None
         self.second_image = None  # For hybrid images
         
         # Initialize UI components
@@ -956,10 +957,11 @@ class MainWindow(QMainWindow):
                 if image is None:
                     self.show_error_message(f"Failed to load image: {file_name}")
                     return
+                image = cv2.resize(image, (300, 300))
                 
                 # Set the image in the dual view
                 if image_number == 1:
-                    self.original_image = image
+                    self.first_image = image
                     self.dual_image_view.set_first_image(image)
                     self.show_status_message(f"Loaded first image: {file_name}", 3000)
                 else:
@@ -971,14 +973,12 @@ class MainWindow(QMainWindow):
                 self.show_error_message(f"Error loading image: {str(e)}")
 
     def create_hybrid_from_dual_view(self, alpha):
-        """Create a hybrid image from the two images in dual view"""
-        if self.original_image is None or self.second_image is None:
+        if self.first_image is None or self.second_image is None:
             self.show_error_message("Both images must be loaded to create a hybrid image")
             return
             
         # Create hybrid image
-        hybrid_image = create_hybrid_image(self.original_image, self.second_image, alpha)
-        self.current_image = hybrid_image
+        self.current_image = create_hybrid_image(self.first_image, self.second_image, alpha)
         self.update_image_display()
         self.show_status_message(f"Created hybrid image with alpha={alpha:.2f}")
         
