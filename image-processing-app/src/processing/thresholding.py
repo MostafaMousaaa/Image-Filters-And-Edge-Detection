@@ -2,86 +2,82 @@ import numpy as np
 import cv2
 
 def global_threshold(image, threshold):
-    """
-    Apply global thresholding to an image
-    
-    Args:
-        image: Input image
-        threshold: Threshold value (0-255)
-    
-    Returns:
-        Binary image where pixels >= threshold are set to 255 and others to 0
-    """
-    # Convert to grayscale if the image is color
-    if len(image.shape) == 3:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Create output binary image
-    binary_image = np.zeros_like(image)
-    
-    # Apply thresholding
-    binary_image[image >= threshold] = 255
-    
-    return binary_image
+    thresholded_image = np.zeros_like(image) # same shape and size as image but all the values are zeros
 
-def local_threshold(image, block_size, constant):
-    """
-    Apply local adaptive thresholding to an image using mean value of neighborhood
-    
-    Args:
-        image: Input image
-        block_size: Size of the neighborhood area (must be odd)
-        constant: Constant subtracted from the mean
-    
-    Returns:
-        Binary image where pixels >= local_threshold are set to 255 and others to 0
-    """
-    # Convert to grayscale if the image is color
-    if len(image.shape) == 3:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Ensure block size is odd
-    if block_size % 2 == 0:
-        block_size += 1
-    
-    # Get image dimensions
-    rows, cols = image.shape
-    
-    # Create output binary image
-    binary_image = np.zeros_like(image)
-    
-    # Apply padding to handle boundary
-    pad = block_size // 2
-    padded_image = np.pad(image, pad, mode='reflect')
-    
-    # For each pixel in the image
-    for i in range(rows):
-        for j in range(cols):
-            # Get the neighborhood
-            neighborhood = padded_image[i:i+block_size, j:j+block_size]
-            
-            # Calculate the local threshold
-            local_threshold = np.mean(neighborhood) - constant
-            
-            # Apply thresholding
-            if image[i, j] >= local_threshold:
-                binary_image[i, j] = 255
-    
-    return binary_image
+    if len(image.shape) == 2:  # Grayscale image
+        for row in range(image.shape[0]):
+            for col in range(image.shape[1]):
+                if image[row][col] > threshold: # Apply binary thresholding, where the value is set to either 255 (white) or 0 (black)
+                    thresholded_image[row][col] = 255
+                else:
+                    thresholded_image[row][col] = 0
 
+    elif len(image.shape) == 3:  # Colored image (BGR)
+        for row in range(image.shape[0]):
+            for col in range(image.shape[1]):
+                for component in range(image.shape[2]):  # Iterate through channels (BGR)
+                    if image[row][col][component] > threshold:
+                        thresholded_image[row][col][component] = 255
+                    else:
+                        thresholded_image[row][col][component] = 0
+
+    return thresholded_image
+
+def local_threshold(image, block_size):
+    if ((block_size < 3) or (block_size > 99) or (block_size % 2 == 0)): # Ensure block size is odd so that we always have a center pixel in our block
+        return "Block Size must be an odd number between 3 & 99"
+    
+    # Mean based thresholding, where for each block, the mean is the threshold value
+    thresholded_image = np.zeros_like(image)
+    height = image.shape[0]
+    width = image.shape[1]
+
+    # Used to compute the neighbors around the center pixel (pixel at row i and column j)
+    half_block = block_size // 2
+
+    # Iterate over each pixel in the image (excluding borders)
+    for row in range(height):
+        for col in range(width):
+            # Get the neighborhood region (block) around the current pixel
+            y_min = max(row - half_block, 0) # top boundary
+            y_max = min(row + half_block + 1, height) # bottom boundary (1 is added as ending is exclusive in array slicing)
+            x_min = max(col - half_block, 0) # left boundary
+            x_max = min(col + half_block + 1, width) # right boundary
+
+            if len(image.shape) == 2: # Grayscale image
+                # Extract the local block
+                local_block = image[y_min:y_max, x_min:x_max]
+
+                # Compute the mean of the local block
+                local_mean = np.mean(local_block)
+
+                if image[row][col] > local_mean:
+                    thresholded_image[row][col] = 255
+                else:
+                    thresholded_image[row][col] = 0
+            
+            elif len(image.shape) == 3:  # Colored image (BGR)
+                # Extract the local block for each channel
+                local_block_b = image[y_min:y_max, x_min:x_max, 0] # Blue channel
+                local_block_g = image[y_min:y_max, x_min:x_max, 1] # Green channel
+                local_block_r = image[y_min:y_max, x_min:x_max, 2]  # Red channel
+
+                # Compute the mean for each color channel
+                local_mean_b = np.mean(local_block_b)
+                local_mean_g = np.mean(local_block_g)
+                local_mean_r = np.mean(local_block_r)
+                local_means = [local_mean_b, local_mean_g, local_mean_r]
+
+                for channel in range(3):
+                    if image[row][col][channel] > local_means[channel]:
+                        thresholded_image[row][col][channel] = 255
+                    else:
+                        thresholded_image[row][col][channel] = 0
+
+    return thresholded_image
+
+"""
 def local_threshold_optimized(image, block_size, constant):
-    """
-    Apply local adaptive thresholding to an image using mean value of neighborhood
-    This is an optimized version that uses integral images for faster computation
-    
-    Args:
-        image: Input image
-        block_size: Size of the neighborhood area (must be odd)
-        constant: Constant subtracted from the mean
-    
-    Returns:
-        Binary image where pixels >= local_threshold are set to 255 and others to 0
-    """
     # Convert to grayscale if the image is color
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -138,15 +134,6 @@ def local_threshold_optimized(image, block_size, constant):
     return binary_image
 
 def otsu_threshold(image):
-    """
-    Determine optimal threshold using Otsu's method and apply it
-    
-    Args:
-        image: Input image
-    
-    Returns:
-        Binary image and the calculated threshold value
-    """
     # Convert to grayscale if the image is color
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -194,3 +181,4 @@ def otsu_threshold(image):
     binary_image = global_threshold(image, optimal_threshold)
     
     return binary_image, optimal_threshold
+ """

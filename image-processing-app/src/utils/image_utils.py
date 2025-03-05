@@ -39,37 +39,21 @@ class ImageProcessing:
     
     @staticmethod
     def convert_to_grayscale(image):
-        """
-        Convert a color image to grayscale using weighted RGB channels
-        
-        Args:
-            image (np.ndarray): Input color image
-            
-        Returns:
-            np.ndarray: Grayscale image
-        """
         if image is None:
-            return None
-            
-        # If already grayscale, return as is
+        return None
+        
+        # If image is already grayscale, return it as it is
         if len(image.shape) == 2:
             return image
-        
-        # Using the standard RGB to grayscale conversion formula
-        # Y = 0.299*R + 0.587*G + 0.114*B
-        height, width, channels = image.shape
-        grayscale = np.zeros((height, width), dtype=np.uint8)
-        
-        # Extract BGR channels (OpenCV stores as BGR)
-        b = image[:, :, 0].astype(np.float32)
-        g = image[:, :, 1].astype(np.float32)
-        r = image[:, :, 2].astype(np.float32)
-        
-        # Apply conversion formula
-        grayscale = 0.299 * r + 0.587 * g + 0.114 * b
-        
-        # Convert back to uint8
-        return grayscale.astype(np.uint8)
+
+        grayScaledImage = np.zeros((image.shape[0], image.shape[1]), dtype=image.dtype) # Creates a zero array with the same height and width as image (but no channels)
+
+        for row in range(image.shape[0]):
+                for col in range(image.shape[1]):
+                        grayIntensity = round(0.114 * image[row][col][0] + 0.587 * image[row][col][1] + 0.299 * image[row][col][2])
+                        grayScaledImage[row][col] = grayIntensity
+
+        return grayScaledImage
 
     @staticmethod
     def normalize_image(image, target_min=0, target_max=255):

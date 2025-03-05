@@ -87,11 +87,11 @@ class DualImageView(QWidget):
         self.image_splitter = QSplitter(Qt.Orientation.Horizontal)
         
         # First image area
-        self.first_image_panel = ImagePanel("First Image")
+        self.first_image_panel = ImagePanel("First Image (Low Pass Filtered)")
         self.first_image_panel.load_button.clicked.connect(self.load_first_image_clicked)
         
         # Second image area
-        self.second_image_panel = ImagePanel("Second Image")
+        self.second_image_panel = ImagePanel("Second Image (High Pass Filtered)")
         self.second_image_panel.load_button.clicked.connect(self.load_second_image_clicked)
         
         # Add panels to splitter
@@ -122,9 +122,9 @@ class DualImageView(QWidget):
         )
         
         slider_labels_layout = QHBoxLayout()
-        slider_labels_layout.addWidget(QLabel("Image 1"))
+        slider_labels_layout.addWidget(QLabel("0"))
         slider_labels_layout.addStretch()
-        slider_labels_layout.addWidget(QLabel("Image 2"))
+        slider_labels_layout.addWidget(QLabel("1"))
         
         alpha_layout.addWidget(alpha_label)
         alpha_layout.addWidget(self.alpha_slider)
