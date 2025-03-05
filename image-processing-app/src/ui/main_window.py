@@ -698,6 +698,9 @@ class MainWindow(QMainWindow):
                     return
                 self.original_image = cv2.resize(self.original_image, (300, 300))
                 self.current_image = self.original_image.copy()
+                self.histogram_widget.tab_widget.setTabEnabled(0, False)
+                self.histogram_widget.tab_widget.setTabEnabled(1, True)
+                self.histogram_widget.tab_widget.setCurrentIndex(1)
                 self.update_image_display()
                 
                 # Update status with filename only (not full path)
@@ -736,8 +739,6 @@ class MainWindow(QMainWindow):
         if self.current_image is None:
             return
         
-        
-            
         if len(self.current_image.shape) == 3:  # colored image
             # Convert OpenCV BGR to RGB for Qt
             rgb_image = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2RGB)
@@ -748,7 +749,6 @@ class MainWindow(QMainWindow):
             # Grayscale image
             height, width = self.current_image.shape
             q_image = QImage(self.current_image.data, width, height, width, QImage.Format.Format_Grayscale8)
-                
         
         self.image_display.set_image(QPixmap.fromImage(q_image))
         self.update_histogram()
@@ -768,12 +768,18 @@ class MainWindow(QMainWindow):
     def reset_to_original(self):
         if self.original_image is not None:
             self.current_image = self.original_image.copy()
+            self.histogram_widget.tab_widget.setTabEnabled(0, False)
+            self.histogram_widget.tab_widget.setTabEnabled(1, True)
+            self.histogram_widget.tab_widget.setCurrentIndex(1)
             self.update_image_display()
             self.statusBar().showMessage("Reset to original image")
 
     def convert_to_grayscale(self):
         if self.current_image is not None:
             self.current_image = convert_to_grayscale(self.current_image)
+            self.histogram_widget.tab_widget.setTabEnabled(1, False)
+            self.histogram_widget.tab_widget.setTabEnabled(0, True)
+            self.histogram_widget.tab_widget.setCurrentIndex(0)
             self.update_image_display()
             self.statusBar().showMessage("Converted to grayscale")
 

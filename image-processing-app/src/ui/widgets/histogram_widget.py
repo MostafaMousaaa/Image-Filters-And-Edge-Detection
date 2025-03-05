@@ -79,14 +79,9 @@ class HistogramWidget(QWidget):
         
         self.image_data = image_data
         self.is_color = len(image_data.shape) == 3 and image_data.shape[2] == 3
-        
         self.update_grayscale_histogram()
-        
         if self.is_color:
             self.update_rgb_histogram()
-            self.tab_widget.setTabEnabled(1, True)  # Enable RGB tab
-        else:
-            self.tab_widget.setTabEnabled(1, False)  # Disable RGB tab
             
         self.update_distribution_function()
     
