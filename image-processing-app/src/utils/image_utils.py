@@ -34,16 +34,21 @@ def save_image(filepath, image):
     cv2.imwrite(filepath, image)
 
 def convert_to_grayscale(image):
-    
     if image is None:
         return None
         
-    # If already grayscale, return as is
+    # If image is already grayscale, return it as it is
     if len(image.shape) == 2:
         return image
-        
-    # Convert to grayscale
-    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    grayScaledImage = np.zeros((image.shape[0], image.shape[1]), dtype=image.dtype) # Creates a zero array with the same height and width as image (but no channels)
+
+    for row in range(image.shape[0]):
+            for col in range(image.shape[1]):
+                    grayIntensity = round(0.114 * image[row][col][0] + 0.587 * image[row][col][1] + 0.299 * image[row][col][2])
+                    grayScaledImage[row][col] = grayIntensity
+
+    return grayScaledImage
 
 def normalize_image(image):
     """
