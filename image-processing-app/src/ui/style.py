@@ -305,6 +305,114 @@ def apply_stylesheet(app):
             border: 1px solid #0a84ff;
             border-radius: 8px;
         }
+        
+        /* Edge Detection and Active Contour Panels */
+        QGroupBox#paramGroupBox, QGroupBox#actionGroupBox, QGroupBox#metricsGroupBox {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-top: 1ex;
+            font-weight: bold;
+        }
+        
+        QGroupBox#paramGroupBox::title, QGroupBox#actionGroupBox::title, QGroupBox#metricsGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            padding: 0 5px;
+        }
+        
+        QLabel#paramLabel {
+            min-width: 120px;
+        }
+        
+        QLabel#valueLabel {
+            min-width: 40px;
+            font-weight: bold;
+        }
+        
+        QLabel#metricLabel {
+            font-weight: bold;
+        }
+        
+        QLabel#metricValue {
+            font-weight: bold;
+            color: #0066cc;
+        }
+        
+        QLabel#statusLabel {
+            font-weight: bold;
+            color: #005500;
+            padding: 5px;
+        }
+        
+        #edgeDetectionPanel QPushButton#actionButton, 
+        #activeContourPanel QPushButton#actionButton {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            min-height: 30px;
+        }
+        
+        #edgeDetectionPanel QPushButton#actionButton:hover, 
+        #activeContourPanel QPushButton#actionButton:hover {
+            background-color: #45a049;
+        }
+        
+        #edgeDetectionPanel QPushButton#actionButton:pressed, 
+        #activeContourPanel QPushButton#actionButton:pressed {
+            background-color: #3c8c40;
+        }
+        
+        QFrame#statusFrame, QFrame#resultsFrame {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            margin-top: 5px;
+            padding: 5px;
+        }
+        
+        QSlider#paramSlider::groove:horizontal {
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+        }
+        
+        QSlider#paramSlider::handle:horizontal {
+            background: #4CAF50;
+            width: 14px;
+            height: 14px;
+            margin: -4px 0;
+            border-radius: 7px;
+        }
+        
+        QDoubleSpinBox#paramSpinBox, QSpinBox#paramSpinBox {
+            padding: 3px;
+            min-width: 70px;
+        }
+        
+        QTabWidget::pane {
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            top: -1px;
+        }
+        
+        QTabBar::tab {
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            padding: 5px 12px;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+        
+        QTabBar::tab:selected {
+            background: white;
+            border-bottom-color: white;
+        }
+        
+        QDockWidget#edgeDockWidget, QDockWidget#contourDockWidget {
+            font-weight: bold;
+        }
     """)
     
     # Set modern font

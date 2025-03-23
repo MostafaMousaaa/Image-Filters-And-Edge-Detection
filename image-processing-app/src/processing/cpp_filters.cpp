@@ -5,6 +5,17 @@
 #include <cmath>
 
 
+
+
+
+
+
+
+
+
+
+
+
 cv::Mat averageFilter(const cv::Mat& image, int size = 3) {
     
     cv::Mat filteredImage = image.clone();

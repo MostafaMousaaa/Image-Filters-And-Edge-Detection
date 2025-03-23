@@ -35,7 +35,7 @@ class SplashScreen(QSplashScreen):
         layout.setContentsMargins(20, 20, 20, 20)
         
         # App title
-        self.title_label = QLabel("Computer Vision Task 1\n Image Filters And Edge Detection")
+        self.title_label = QLabel("Computer Vision Task 2\n Edge Detection and Active Contours")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title_label.setStyleSheet("""
             color: #ffffff;
@@ -140,7 +140,7 @@ class SplashScreen(QSplashScreen):
         layout.addWidget(self.status_label)
         
         # Version label
-        self.version_label = QLabel("Version 1.0")
+        self.version_label = QLabel("Version 2.0")
         self.version_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom)
         self.version_label.setStyleSheet("""
             color: #636366;

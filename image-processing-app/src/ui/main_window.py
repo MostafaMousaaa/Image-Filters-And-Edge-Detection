@@ -26,12 +26,18 @@ from ..processing.frequency_domain import gaussian_low_pass_filter
 from ..processing.frequency_domain import butterworth_high_pass_filter
 from ..processing.hybrid_images import create_hybrid_image
 from ..ui.icons import icons
+from src.ui.edge_detection_panel import EdgeDetectionPanel
+from src.ui.active_contour_panel import ActiveContourPanel
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, support_edge_detection=False, support_active_contours=False):
         super().__init__()
         self.setWindowTitle("Computer Vision - Image Processing App")
         self.setGeometry(50, 50, 1200, 800)
+        
+        # Store dock widget references
+        self.edge_dock = None
+        self.contour_dock = None
         
         # Try to set application icon
         try:
@@ -57,6 +63,13 @@ class MainWindow(QMainWindow):
         
         # Disable image operation buttons initially
         # self.enable_image_operations(False)
+        
+        # Add edge detection and active contour support if requested
+        if support_edge_detection:
+            self._init_edge_detection()
+        
+        if support_active_contours:
+            self._init_active_contours()
         
     def init_ui(self):
         # Create central widget with layout
@@ -1040,6 +1053,119 @@ class MainWindow(QMainWindow):
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
         super().closeEvent(event)
+
+    def _init_edge_detection(self):
+        """Initialize edge detection panel and functionality"""
+        # Create and set up the edge detection panel
+        self.edge_detection_panel = EdgeDetectionPanel()
+        
+        # Create a dock widget for edge detection
+        self.edge_dock = QDockWidget("Edge Detection & Hough Transform", self)
+        self.edge_dock.setObjectName("edgeDockWidget")
+        self.edge_dock.setWidget(self.edge_detection_panel)
+        self.edge_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | 
+                                 Qt.DockWidgetArea.RightDockWidgetArea)
+        self.edge_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
+                              QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+        
+        # Add dock widget to the main window
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.edge_dock)
+        
+        # Connect signals to slots
+        self.edge_detection_panel.apply_canny_clicked.connect(self._on_apply_canny)
+        self.edge_detection_panel.detect_lines_clicked.connect(self._on_detect_lines)
+        self.edge_detection_panel.detect_circles_clicked.connect(self._on_detect_circles)
+        self.edge_detection_panel.detect_ellipses_clicked.connect(self._on_detect_ellipses)
+        
+        # Add action to View menu if it exists
+        if hasattr(self, 'view_menu'):
+            self.view_menu.addAction(self.edge_dock.toggleViewAction())
+    
+    def _init_active_contours(self):
+        """Initialize active contours panel and functionality"""
+        # Create and set up the active contours panel
+        self.active_contour_panel = ActiveContourPanel()
+        
+        # Create a dock widget for active contours
+        self.contour_dock = QDockWidget("Active Contour Model (Snake)", self)
+        self.contour_dock.setObjectName("contourDockWidget")
+        self.contour_dock.setWidget(self.active_contour_panel)
+        self.contour_dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | 
+                                   Qt.DockWidgetArea.RightDockWidgetArea)
+        self.contour_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
+                                QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+        
+        # Add dock widget to the main window, stacked below the edge detection panel
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.contour_dock)
+        
+        # Only tabify if edge_dock was created
+        if self.edge_dock:
+            self.tabifyDockWidget(self.edge_dock, self.contour_dock)  # Stack them as tabs
+        
+        # Connect signals to slots
+        self.active_contour_panel.initialize_contour_clicked.connect(self._on_initialize_contour)
+        self.active_contour_panel.evolve_contour_clicked.connect(self._on_evolve_contour)
+        self.active_contour_panel.reset_contour_clicked.connect(self._on_reset_contour)
+        self.active_contour_panel.calculate_metrics_clicked.connect(self._on_calculate_metrics)
+        self.active_contour_panel.show_chain_code_clicked.connect(self._on_show_chain_code)
+        
+        # Add action to View menu if it exists
+        if hasattr(self, 'view_menu'):
+            self.view_menu.addAction(self.contour_dock.toggleViewAction())
+    
+    # Event handlers for edge detection
+    def _on_apply_canny(self):
+        """Apply Canny edge detection with current parameters"""
+        # Implementation will depend on your image processing backend
+        self.statusBar().showMessage("Applying Canny edge detection...")
+        # Add actual implementation here
+    
+    def _on_detect_lines(self):
+        """Detect lines using Hough transform"""
+        self.statusBar().showMessage("Detecting lines...")
+        # Add actual implementation here
+    
+    def _on_detect_circles(self):
+        """Detect circles using Hough transform"""
+        self.statusBar().showMessage("Detecting circles...")
+        # Add actual implementation here
+    
+    def _on_detect_ellipses(self):
+        """Detect ellipses"""
+        self.statusBar().showMessage("Detecting ellipses...")
+        # Add actual implementation here
+    
+    # Event handlers for active contours
+    def _on_initialize_contour(self):
+        """Initialize contour points"""
+        self.statusBar().showMessage("Click on image to place initial contour points...")
+        # Add actual implementation here
+    
+    def _on_evolve_contour(self):
+        """Evolve the active contour"""
+        self.statusBar().showMessage("Evolving contour...")
+        # Add actual implementation here
+    
+    def _on_reset_contour(self):
+        """Reset the contour"""
+        self.statusBar().showMessage("Contour reset")
+        # Add actual implementation here
+    
+    def _on_calculate_metrics(self):
+        """Calculate and display contour metrics"""
+        self.statusBar().showMessage("Calculating perimeter and area...")
+        # Example values - replace with actual calculation
+        perimeter = 142.5
+        area = 1256.3
+        self.active_contour_panel.set_metric_values(perimeter, area)
+    
+    def _on_show_chain_code(self, show):
+        """Show or hide chain code representation"""
+        if show:
+            self.statusBar().showMessage("Showing chain code")
+        else:
+            self.statusBar().showMessage("Hiding chain code")
+        # Add actual implementation here
 
    
 def main():

@@ -1,97 +1,103 @@
-# Computer Vision Image Processing Application
+# Image Filters and Edge Detection Application
 
-## Overview
-
-This application is a comprehensive tool for image processing and computer vision operations. It provides an intuitive graphical user interface for applying various image processing algorithms, visualizing results, and comparing different techniques.
+A comprehensive computer vision application that provides a visual interface for image processing, filtering, edge detection, and active contour models. This project was developed as part of the Computer Vision course assignments.
 
 ## Features
 
-### 1. Image Reading and Display
-- Support for RGB and grayscale images
-- Zoomable image display
-- Side-by-side image comparison
+### Assignment 1: Image Processing and Filtering
 
-### 2. Noise Generation
-- Gaussian noise with adjustable mean and sigma
-- Salt & Pepper noise with customizable probabilities
-- Uniform noise with adjustable low and high values
+- **Image Loading and Visualization**: Load and display images with interactive controls
+- **Noise Generators**: Add Gaussian, Salt & Pepper, and Uniform noise to images
+- **Low-Pass Filters**:
+  - Average (Mean) Filter
+  - Gaussian Filter
+  - Median Filter
+- **Edge Detection**:
+  - Sobel Operator (Magnitude, X and Y directions)
+  - Roberts Operator
+  - Prewitt Operator 
+  - Canny Edge Detector
+- **Thresholding**:
+  - Global Thresholding
+  - Local Adaptive Thresholding
+- **Frequency Domain Processing**:
+  - Gaussian Low-Pass Filter
+  - Butterworth High-Pass Filter
+- **Hybrid Image Generation**: Combine two images with controllable alpha blending
+- **Histogram Analysis**: View and analyze image histograms for both grayscale and color images
 
-### 3. Image Filtering
-- Average filter with variable kernel size
-- Gaussian filter with adjustable sigma
-- Median filter with variable kernel size
+### Assignment 2: Edge Detection and Active Contours
 
-### 4. Edge Detection
-- Sobel edge detector with X and Y direction visualization
-- Roberts edge detector with X and Y direction visualization
-- Prewitt edge detector with X and Y direction visualization
-- Canny edge detector with adjustable thresholds
+- **Advanced Edge Detection**:
+  - Canny Edge Detection with parameter control
+  - Hough Line Transform for line detection
+  - Hough Circle Transform for circle detection
+  - Ellipse detection
+  
+- **Active Contour Model (Snake)**:
+  - Interactive contour initialization
+  - Contour evolution with Greedy Snake algorithm
+  - Adjustable parameters (alpha, beta, gamma)
+  - Contour metrics calculation (perimeter, area)
+  - Chain code representation
 
-### 5. Histogram Analysis
-- Grayscale histogram visualization
-- RGB channel histograms (separate for R, G, B)
-- Cumulative distribution function display for each channel
+## Performance Optimizations
 
-### 6. Image Enhancement
-- Histogram equalization
-- Image normalization
+- **C++ Integration**: Critical algorithms implemented in C++ for performance
+- **Optimized Data Structures**: Efficient memory usage for large images
+- **Multi-threaded Processing**: Parallel processing for computationally intensive operations
 
-### 7. Thresholding
-- Global thresholding with adjustable threshold value
-- Local (adaptive) thresholding with variable block size and constant
+## Installation
 
-### 8. Color Operations
-- Transformation from color to grayscale
-- Channel-wise histogram visualization and equalization
-
-### 9. Frequency Domain Processing
-- Low pass filtering (Ideal and Butterworth)
-- High pass filtering (Ideal and Butterworth)
-- Adjustable cutoff frequency
-
-### 10. Hybrid Images
-- Combining two images with adjustable alpha blending
-- Preview of both source images
-- Control over the blending factor
-
-## Implementation Details
-
-### Edge Detection
-
-All edge detection methods (except Canny) provide visualization in three modes:
-- Magnitude: Combined strength of edges in all directions
-- X Direction: Horizontal edge components
-- Y Direction: Vertical edge components
-
-### Histogram Analysis
-
-The histogram widget provides three views:
-- Grayscale: Shows intensity distribution for grayscale images or luminance for color images
-- RGB: Shows separate histograms for Red, Green, and Blue channels
-- Distribution: Shows cumulative distribution functions used for histogram equalization
-
-### Frequency Domain Filters
-
-Two filter types are available:
-- Low Pass: Keeps the low-frequency components (smoothing)
-- High Pass: Keeps the high-frequency components (edge enhancement)
-
-Each filter can use either:
-- Ideal: Sharp cutoff at the specified frequency
-- Butterworth: Gradual transition for smoother results
-
-## Usage Instructions
-
-1. Load an image using the "Open Image" button or File menu
-2. Apply operations using the tabs on the right sidebar
-3. View results in the main display area
-4. Check histograms in the bottom panel
-5. Save results using the "Save Image" button or File menu
-
-## Requirements
-
+### Prerequisites
 - Python 3.8+
-- PyQt6
 - OpenCV
+- PyQt6
 - NumPy
-- Matplotlib
+- C++ compiler (for building the C++ modules)
+
+### Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/Image-Filters-And-Edge-Detection.git
+cd Image-Filters-And-Edge-Detection
+```
+
+2. Install required Python packages:
+```bash
+pip install -r requirements.txt
+```
+
+3. Build C++ modules (optional for improved performance):
+```bash
+cd image-processing-app/src/processing
+python setup.py build_ext --inplace
+```
+
+## Usage
+
+Run the application:
+
+```bash
+python image-processing-app/main.py
+```
+
+### Basic Workflow:
+
+1. **Load an image** using the File menu or toolbar
+2. **Apply filters or operations** from the sidebar tabs
+3. **Adjust parameters** to fine-tune the results
+4. **Save the processed image** when satisfied
+
+### Edge Detection and Active Contours:
+
+1. **Load an image** to process
+2. Use the **Edge Detection panel** to detect edges, lines, and shapes
+3. Use the **Active Contour panel** to:
+   - Initialize a contour by clicking points on the image
+   - Evolve the contour to fit object boundaries
+   - Calculate metrics (perimeter, area)
+   - View the chain code representation
+
+## Project Structure
