@@ -28,6 +28,9 @@ from ..processing.hybrid_images import create_hybrid_image
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
 from src.ui.active_contour_panel import ActiveContourPanel
+from ..processing.active_contour import GreedySnake
+from ..ui.widgets.contour_editor import ContourEditorWidget
+from ..ui.widgets.chain_code_display import ChainCodeDisplay
 
 class MainWindow(QMainWindow):
     def __init__(self, support_edge_detection=False, support_active_contours=False):
@@ -1102,6 +1105,32 @@ class MainWindow(QMainWindow):
         if self.edge_dock:
             self.tabifyDockWidget(self.edge_dock, self.contour_dock)  # Stack them as tabs
         
+        # Create contour editor widget (replacing the regular image display when in contour mode)
+        self.contour_editor = ContourEditorWidget()
+        self.contour_editor.hide()  # Initially hidden
+        
+        # Add contour editor to the image frame layout (alongside the regular image display)
+        image_frame_layout = self.image_panel.layout().itemAt(0).widget().layout()
+        image_frame_layout.addWidget(self.contour_editor)
+        
+        # Create chain code display widget
+        self.chain_code_display = ChainCodeDisplay()
+        self.chain_code_display.hide()  # Initially hidden
+        
+        # Add chain code display as a dock widget
+        self.chain_code_dock = QDockWidget("Chain Code", self)
+        self.chain_code_dock.setWidget(self.chain_code_display)
+        self.chain_code_dock.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
+        self.chain_code_dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | 
+                                   QDockWidget.DockWidgetFeature.DockWidgetFloatable | 
+                                   QDockWidget.DockWidgetFeature.DockWidgetClosable)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.chain_code_dock)
+        self.chain_code_dock.hide()  # Initially hidden
+        
+        # Initialize snake algorithm object
+        self.snake = None
+        self.contour_initialized = False
+        
         # Connect signals to slots
         self.active_contour_panel.initialize_contour_clicked.connect(self._on_initialize_contour)
         self.active_contour_panel.evolve_contour_clicked.connect(self._on_evolve_contour)
@@ -1109,64 +1138,376 @@ class MainWindow(QMainWindow):
         self.active_contour_panel.calculate_metrics_clicked.connect(self._on_calculate_metrics)
         self.active_contour_panel.show_chain_code_clicked.connect(self._on_show_chain_code)
         
+        # Add radio buttons for contour initialization mode
+        mode_layout = QHBoxLayout()
+        mode_label = QLabel("Initialization Mode:")
+        mode_layout.addWidget(mode_label)
+        
+        self.contour_mode_group = QButtonGroup()
+        
+        self.manual_mode_radio = QRadioButton("Manual")
+        self.manual_mode_radio.setChecked(True)
+        self.manual_mode_radio.toggled.connect(lambda: self._set_contour_mode("manual"))
+        self.contour_mode_group.addButton(self.manual_mode_radio)
+        mode_layout.addWidget(self.manual_mode_radio)
+        
+        self.circle_mode_radio = QRadioButton("Circle")
+        self.circle_mode_radio.toggled.connect(lambda: self._set_contour_mode("circle"))
+        self.contour_mode_group.addButton(self.circle_mode_radio)
+        mode_layout.addWidget(self.circle_mode_radio)
+        
+        self.rect_mode_radio = QRadioButton("Rectangle")
+        self.rect_mode_radio.toggled.connect(lambda: self._set_contour_mode("rectangle"))
+        self.contour_mode_group.addButton(self.rect_mode_radio)
+        mode_layout.addWidget(self.rect_mode_radio)
+        
+        # Add to the active contour panel layout
+        snake_params_layout = self.active_contour_panel.findChild(QGroupBox, "paramGroupBox").layout()
+        snake_params_layout.addLayout(mode_layout)
+        
+        # Connect contour editor signals
+        self.contour_editor.contour_updated.connect(self._on_contour_updated)
+        
         # Add action to View menu if it exists
         if hasattr(self, 'view_menu'):
             self.view_menu.addAction(self.contour_dock.toggleViewAction())
+            self.view_menu.addAction(self.chain_code_dock.toggleViewAction())
     
-    # Event handlers for edge detection
-    def _on_apply_canny(self):
-        """Apply Canny edge detection with current parameters"""
-        # Implementation will depend on your image processing backend
-        self.statusBar().showMessage("Applying Canny edge detection...")
-        # Add actual implementation here
+    def _set_contour_mode(self, mode):
+        """Set the contour initialization mode"""
+        if hasattr(self, 'contour_editor'):
+            self.contour_editor.set_editing_mode(mode)
+            self.statusBar().showMessage(f"Contour initialization mode set to: {mode}")
     
-    def _on_detect_lines(self):
-        """Detect lines using Hough transform"""
-        self.statusBar().showMessage("Detecting lines...")
-        # Add actual implementation here
-    
-    def _on_detect_circles(self):
-        """Detect circles using Hough transform"""
-        self.statusBar().showMessage("Detecting circles...")
-        # Add actual implementation here
-    
-    def _on_detect_ellipses(self):
-        """Detect ellipses"""
-        self.statusBar().showMessage("Detecting ellipses...")
-        # Add actual implementation here
+    def _on_contour_updated(self, points):
+        """Handle contour points update from the editor"""
+        if len(points) >= 3:  # Need at least 3 points for a valid contour
+            self.contour_initialized = True
+            self.active_contour_panel.evolve_button.setEnabled(True)
+            self.active_contour_panel.calculate_metrics_button.setEnabled(True)
+            
+            # Update snake if it exists
+            if self.snake is not None:
+                self.snake.set_contour_points(points)
+        else:
+            self.contour_initialized = False
+            self.active_contour_panel.evolve_button.setEnabled(False)
+            self.active_contour_panel.calculate_metrics_button.setEnabled(False)
     
     # Event handlers for active contours
     def _on_initialize_contour(self):
         """Initialize contour points"""
+        if self.current_image is None:
+            self.statusBar().showMessage("No image loaded")
+            return
+        
+        # Show the contour editor
+        self.image_display.hide()
+        self.contour_editor.show()
+        self.contour_editor.set_image(self.current_image)
+        
+        # Clear any existing contour
+        self.contour_editor.clear_contour()
+        
+        # Initialize the snake algorithm
+        self.snake = GreedySnake(
+            self.current_image,
+            alpha=self.active_contour_panel.alpha_param.value(),
+            beta=self.active_contour_panel.beta_param.value(),
+            gamma=self.active_contour_panel.gamma_param.value(),
+            max_iterations=self.active_contour_panel.max_iterations.value()
+        )
+        
+        self.active_contour_panel.set_status("Click on the image to place contour points")
         self.statusBar().showMessage("Click on image to place initial contour points...")
-        # Add actual implementation here
     
     def _on_evolve_contour(self):
         """Evolve the active contour"""
+        if not self.contour_initialized or self.snake is None:
+            self.statusBar().showMessage("Initialize contour first")
+            return
+        
+        # Update snake parameters
+        self.snake.alpha = self.active_contour_panel.alpha_param.value()
+        self.snake.beta = self.active_contour_panel.beta_param.value()
+        self.snake.gamma = self.active_contour_panel.gamma_param.value()
+        self.snake.max_iterations = self.active_contour_panel.max_iterations.value()
+        
+        # Evolve the snake
         self.statusBar().showMessage("Evolving contour...")
-        # Add actual implementation here
+        self.active_contour_panel.set_status("Evolving contour...")
+        
+        try:
+            evolved_contour = self.snake.evolve()
+            
+            # Update the display
+            self.current_image = self.snake.get_visualization(show_history=True)
+            self.update_image_display()
+            
+            # Switch back to image display
+            self.contour_editor.hide()
+            self.image_display.show()
+            
+            # Update status
+            self.active_contour_panel.set_status("Contour evolved successfully")
+            self.statusBar().showMessage("Contour evolved successfully")
+            
+            # Calculate metrics
+            self._on_calculate_metrics()
+            
+        except Exception as e:
+            self.statusBar().showMessage(f"Error evolving contour: {str(e)}")
+            self.active_contour_panel.set_status(f"Error: {str(e)}")
     
     def _on_reset_contour(self):
         """Reset the contour"""
+        # Clear the contour editor
+        if hasattr(self, 'contour_editor'):
+            self.contour_editor.clear_contour()
+        
+        # Reset the snake
+        self.snake = None
+        self.contour_initialized = False
+        
+        # Reset the display
+        if self.original_image is not None:
+            self.current_image = self.original_image.copy()
+            self.update_image_display()
+        
+        # Switch back to image display if needed
+        self.contour_editor.hide()
+        self.image_display.show()
+        
+        # Reset metrics
+        self.active_contour_panel.set_metric_values(0, 0)
+        
+        # Hide chain code if it's showing
+        if self.chain_code_dock.isVisible():
+            self.chain_code_dock.hide()
+        
+        self.active_contour_panel.set_status("Contour reset")
         self.statusBar().showMessage("Contour reset")
-        # Add actual implementation here
     
     def _on_calculate_metrics(self):
         """Calculate and display contour metrics"""
-        self.statusBar().showMessage("Calculating perimeter and area...")
-        # Example values - replace with actual calculation
-        perimeter = 142.5
-        area = 1256.3
+        if not self.contour_initialized or self.snake is None:
+            self.statusBar().showMessage("Initialize and evolve contour first")
+            return
+        
+        # Calculate perimeter and area
+        perimeter, area = self.snake.calculate_metrics()
+        
+        # Update the display
         self.active_contour_panel.set_metric_values(perimeter, area)
+        
+        # Generate chain code
+        chain_code = self.snake.get_chain_code()
+        self.chain_code_display.set_chain_code(chain_code)
+        
+        self.statusBar().showMessage(f"Calculated metrics: Perimeter={perimeter:.2f}, Area={area:.2f}")
     
     def _on_show_chain_code(self, show):
         """Show or hide chain code representation"""
         if show:
+            # Make sure we have a contour
+            if not self.contour_initialized or self.snake is None:
+                self.statusBar().showMessage("Initialize and evolve contour first")
+                self.active_contour_panel.show_chain_code_checkbox.setChecked(False)
+                return
+            
+            # Generate and display chain code
+            chain_code = self.snake.get_chain_code()
+            self.chain_code_display.set_chain_code(chain_code)
+            self.chain_code_dock.show()
             self.statusBar().showMessage("Showing chain code")
         else:
+            # Hide chain code dock
+            self.chain_code_dock.hide()
             self.statusBar().showMessage("Hiding chain code")
-        # Add actual implementation here
 
+    # Event handlers for edge detection
+    def _on_apply_canny(self):
+        # """Apply Canny edge detection with current parameters"""
+        # if self.current_image is None:
+        #     self.statusBar().showMessage("No image loaded")
+        #     return
+        
+        # # Get parameters from the edge detection panel
+        # kernel_size = self.edge_detection_panel.blur_kernel_size.value()
+        # low_threshold = self.edge_detection_panel.low_threshold.value()
+        # high_threshold = self.edge_detection_panel.high_threshold.value()
+        
+        # # Ensure kernel size is odd
+        # if kernel_size % 2 == 0:
+        #     kernel_size += 1
+        
+        # # Convert image to grayscale if needed
+        # if len(self.current_image.shape) == 3:
+        #     gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
+        # else:
+        #     gray = self.current_image.copy()
+        
+        # # Apply Gaussian blur
+        # blurred = cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
+        
+        # # Apply Canny edge detection
+        # edges = cv2.Canny(blurred, low_threshold, high_threshold)
+        
+        # # Convert to BGR for display
+        # self.current_image = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+        
+        # # Update display
+        # self.update_image_display()
+        # self.statusBar().showMessage(f"Applied Canny edge detection (kernel={kernel_size}, low={low_threshold}, high={high_threshold})")
+        pass
+
+    def _on_detect_lines(self):
+        # """Detect lines using Hough transform"""
+        # if self.current_image is None:
+        #     self.statusBar().showMessage("No image loaded")
+        #     return
+        
+        # # Get parameters from the edge detection panel
+        # rho = self.edge_detection_panel.rho_resolution.value()
+        # theta = self.edge_detection_panel.theta_resolution.value()
+        # threshold = self.edge_detection_panel.threshold_lines.value()
+        
+        # # Make a copy of the original image to draw lines on
+        # result_image = self.original_image.copy()
+        
+        # # Convert to grayscale if needed
+        # if len(self.current_image.shape) == 3:
+        #     gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
+        # else:
+        #     gray = self.current_image.copy()
+        
+        # # Apply Canny edge detection first
+        # edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+        
+        # # Detect lines
+        # lines = cv2.HoughLines(edges, rho, theta, threshold)
+        
+        # # Draw detected lines
+        # if lines is not None:
+        #     for line in lines:
+        #         rho_val, theta_val = line[0]
+        #         a = np.cos(theta_val)
+        #         b = np.sin(theta_val)
+        #         x0 = a * rho_val
+        #         y0 = b * rho_val
+        #         x1 = int(x0 + 1000 * (-b))
+        #         y1 = int(y0 + 1000 * (a))
+        #         x2 = int(x0 - 1000 * (-b))
+        #         y2 = int(y0 - 1000 * (a))
+                
+        #         cv2.line(result_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        
+        # # Update the current image
+        # self.current_image = result_image
+        
+        # # Update display
+        # self.update_image_display()
+        # self.statusBar().showMessage(f"Detected {0 if lines is None else len(lines)} lines with Hough transform")
+        pass 
+    def _on_detect_circles(self):
+        # """Detect circles using Hough transform"""
+        # if self.current_image is None:
+        #     self.statusBar().showMessage("No image loaded")
+        #     return
+        
+        # # Get parameters from the edge detection panel
+        # dp = self.edge_detection_panel.dp_resolution.value()
+        # min_dist = self.edge_detection_panel.min_distance.value()
+        # min_radius = self.edge_detection_panel.min_radius.value()
+        # max_radius = self.edge_detection_panel.max_radius.value()
+        # threshold = self.edge_detection_panel.threshold_circles.value()
+        
+        # # Make a copy of the original image to draw circles on
+        # result_image = self.original_image.copy()
+        
+        # # Convert to grayscale if needed
+        # if len(self.current_image.shape) == 3:
+        #     gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
+        # else:
+        #     gray = self.current_image.copy()
+        
+        # # Apply Gaussian blur to reduce noise
+        # gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # # Detect circles
+        # circles = cv2.HoughCircles(
+        #     gray, 
+        #     cv2.HOUGH_GRADIENT, 
+        #     dp, 
+        #     min_dist, 
+        #     param1=100,  # Upper Canny threshold (fixed)
+        #     param2=threshold,  # Accumulator threshold 
+        #     minRadius=min_radius, 
+        #     maxRadius=max_radius
+        # )
+        
+        # # Draw detected circles
+        # if circles is not None:
+        #     circles = np.uint16(np.around(circles))
+        #     for circle in circles[0, :]:
+        #         # Draw the outer circle
+        #         center = (circle[0], circle[1])
+        #         radius = circle[2]
+        #         cv2.circle(result_image, center, radius, (0, 255, 0), 2)
+                
+        #         # Draw the center of the circle
+        #         cv2.circle(result_image, center, 2, (0, 0, 255), 3)
+        
+        # # Update the current image
+        # self.current_image = result_image
+        
+        # # Update display
+        # self.update_image_display()
+        # self.statusBar().showMessage(f"Detected {0 if circles is None else len(circles[0])} circles with Hough transform")
+        pass
+    def _on_detect_ellipses(self):
+        # """Detect ellipses using contour fitting"""
+        # if self.current_image is None:
+        #     self.statusBar().showMessage("No image loaded")
+        #     return
+        
+        # # Make a copy of the original image to draw ellipses on
+        # result_image = self.original_image.copy()
+        
+        # # Convert to grayscale if needed
+        # if len(self.current_image.shape) == 3:
+        #     gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
+        # else:
+        #     gray = self.current_image.copy()
+        
+        # # Apply threshold to get binary image
+        # _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+        
+        # # Find contours
+        # contours, _ = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # # Filter contours by area and fit ellipses
+        # min_area = 100  # Minimum contour area to consider
+        # ellipses_count = 0
+        
+        # for contour in contours:
+        #     # Skip small contours
+        #     if cv2.contourArea(contour) < min_area:
+        #         continue
+            
+        #     # Need at least 5 points to fit an ellipse
+        #     if len(contour) >= 5:
+        #         ellipse = cv2.fitEllipse(contour)
+        #         cv2.ellipse(result_image, ellipse, (255, 0, 255), 2)
+        #         ellipses_count += 1
+        
+        # # Update the current image
+        # self.current_image = result_image
+        
+        # # Update display
+        # self.update_image_display()
+        # self.statusBar().showMessage(f"Detected {ellipses_count} ellipses from contours")
+        pass
    
 def main():
     app = QApplication(sys.argv)
