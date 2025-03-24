@@ -872,7 +872,7 @@ class MainWindow(QMainWindow):
                 direction = 'y'
         
         if edge_type == "Sobel":
-            self.current_image = sobel_edge_detection(self.current_image, direction)
+            self.current_image, _ = sobel_edge_detection(self.current_image)
             direction_str = f" ({direction_text})" if edge_type != "Canny" else ""
             self.statusBar().showMessage(f"Applied Sobel edge detection{direction_str}")
         elif edge_type == "Roberts":
@@ -886,7 +886,7 @@ class MainWindow(QMainWindow):
         elif edge_type == "Canny":
             low_thresh = self.low_threshold.value()
             high_thresh = self.high_threshold.value()
-            self.current_image = canny_edge_detection(self.current_image, low_thresh, high_thresh)
+            self.current_image = canny_edge_detection(self.current_image)
             self.statusBar().showMessage(f"Applied Canny edge detection (low={low_thresh}, high={high_thresh})")
 
         self.update_image_display()

@@ -70,25 +70,26 @@ class HistogramWidget(QWidget):
         layout.addWidget(self.dist_canvas)
     
     def set_image_data(self, image_data):
-        """Set the image data and update all histogram displays"""
-        if image_data is None:
-            return
+        # """Set the image data and update all histogram displays"""
+        # if image_data is None:
+        #     return
             
-        # Convert to RGB if needed (from BGR)
-        image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
+        # # Convert to RGB if needed (from BGR)
+        # image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
         
-        self.image_data = image_data
-        self.is_color = len(image_data.shape) == 3 and image_data.shape[2] == 3
+        # self.image_data = image_data
+        # self.is_color = len(image_data.shape) == 3 and image_data.shape[2] == 3
         
-        self.update_grayscale_histogram()
+        # self.update_grayscale_histogram()
         
-        if self.is_color:
-            self.update_rgb_histogram()
-            self.tab_widget.setTabEnabled(1, True)  # Enable RGB tab
-        else:
-            self.tab_widget.setTabEnabled(1, False)  # Disable RGB tab
+        # if self.is_color:
+        #     self.update_rgb_histogram()
+        #     self.tab_widget.setTabEnabled(1, True)  # Enable RGB tab
+        # else:
+        #     self.tab_widget.setTabEnabled(1, False)  # Disable RGB tab
             
-        self.update_distribution_function()
+        # self.update_distribution_function()
+        pass
     
     def update_grayscale_histogram(self):
         """Update the grayscale histogram display"""
