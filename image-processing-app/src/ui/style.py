@@ -306,80 +306,88 @@ def apply_stylesheet(app):
             border-radius: 8px;
         }
         
-        /* Edge Detection and Active Contour Panels */
+        /* Edge Detection and Active Contour Panels - Updated styling */
         QGroupBox#paramGroupBox, QGroupBox#actionGroupBox, QGroupBox#metricsGroupBox {
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-top: 1ex;
+            border: 1px solid #444446;
+            border-radius: 6px;
+            margin-top: 12px;
             font-weight: bold;
+            background-color: #2c2c2e;
+            padding-top: 10px;
         }
         
         QGroupBox#paramGroupBox::title, QGroupBox#actionGroupBox::title, QGroupBox#metricsGroupBox::title {
             subcontrol-origin: margin;
             subcontrol-position: top left;
             padding: 0 5px;
+            color: #0a84ff;
+            font-size: 13px;
         }
         
         QLabel#paramLabel {
             min-width: 120px;
+            color: #f2f2f7;
         }
         
         QLabel#valueLabel {
             min-width: 40px;
             font-weight: bold;
+            color: #0a84ff;
         }
         
         QLabel#metricLabel {
             font-weight: bold;
+            color: #f2f2f7;
         }
         
         QLabel#metricValue {
             font-weight: bold;
-            color: #0066cc;
+            color: #0a84ff;
         }
         
         QLabel#statusLabel {
             font-weight: bold;
-            color: #005500;
+            color: #5eaeff;
             padding: 5px;
         }
         
         #edgeDetectionPanel QPushButton#actionButton, 
         #activeContourPanel QPushButton#actionButton {
-            background-color: #4CAF50;
+            background-color: #0a84ff;
             color: white;
             border: none;
-            border-radius: 4px;
-            padding: 6px 12px;
+            border-radius: 6px;
+            padding: 8px 16px;
             min-height: 30px;
+            font-weight: bold;
         }
         
         #edgeDetectionPanel QPushButton#actionButton:hover, 
         #activeContourPanel QPushButton#actionButton:hover {
-            background-color: #45a049;
+            background-color: #5eaeff;
         }
         
         #edgeDetectionPanel QPushButton#actionButton:pressed, 
         #activeContourPanel QPushButton#actionButton:pressed {
-            background-color: #3c8c40;
+            background-color: #0058d0;
         }
         
         QFrame#statusFrame, QFrame#resultsFrame {
-            border: 1px solid #ddd;
+            border: 1px solid #444446;
             border-radius: 4px;
-            background-color: #f9f9f9;
+            background-color: #1c1c1e;
             margin-top: 5px;
             padding: 5px;
         }
         
         QSlider#paramSlider::groove:horizontal {
             height: 6px;
-            background: #e0e0e0;
+            background: #444446;
             border-radius: 3px;
         }
         
         QSlider#paramSlider::handle:horizontal {
-            background: #4CAF50;
+            background: #0a84ff;
             width: 14px;
             height: 14px;
             margin: -4px 0;
@@ -389,29 +397,94 @@ def apply_stylesheet(app):
         QDoubleSpinBox#paramSpinBox, QSpinBox#paramSpinBox {
             padding: 3px;
             min-width: 70px;
+            background-color: #2c2c2e;
+            color: #f2f2f7;
+            selection-background-color: #0a84ff;
+            border: 1px solid #444446;
+            border-radius: 4px;
         }
         
+        /* Fix for the tab widget blur issue */
         QTabWidget::pane {
-            border: 1px solid #ccc;
+            border: 1px solid #444446;
             border-radius: 3px;
             top: -1px;
+            background-color: #1c1c1e;
         }
         
         QTabBar::tab {
-            background: #f0f0f0;
-            border: 1px solid #ccc;
-            padding: 5px 12px;
-            border-top-left-radius: 4px;
-            border-top-right-radius: 4px;
+            background: #2c2c2e;
+            color: #aeaeb2;
+            border: 1px solid #444446;
+            border-bottom: none;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            padding: 8px 12px;
+            min-width: 80px;
+            margin-right: 2px;
+            font-weight: normal;
         }
         
         QTabBar::tab:selected {
-            background: white;
-            border-bottom-color: white;
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                      stop:0 #0a84ff, stop:1 #0058d0);
+            color: white;
+            font-weight: bold;
+        }
+        
+        QTabBar::tab:!selected {
+            background: #2c2c2e;
+            border-color: #444446;
+            color: #aeaeb2;
+            border-bottom: none;
+        }
+        
+        QTabBar::tab:!selected:hover {
+            background: #3c3c3e;
+            border: 1px solid #5eaeff;
+            border-bottom: none;
         }
         
         QDockWidget#edgeDockWidget, QDockWidget#contourDockWidget {
             font-weight: bold;
+            color: #0a84ff;
+            titlebars-colors: white;
+        }
+        
+        QDockWidget::title {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                      stop:0 #2c2c2e, stop:1 #1c1c1e);
+            padding-left: 10px;
+            padding-top: 4px;
+            border-bottom: 1px solid #0a84ff;
+        }
+        
+        /* Making sure checkboxes match the theme */
+        QCheckBox {
+            color: #f2f2f7;
+        }
+        
+        QCheckBox::indicator {
+            width: 16px;
+            height: 16px;
+            border: 1px solid #444446;
+            border-radius: 3px;
+            background-color: #2c2c2e;
+        }
+        
+        QCheckBox::indicator:checked {
+            background-color: #0a84ff;
+            border: 1px solid #0a84ff;
+            image: url(icons/check.png);
+        }
+        
+        QCheckBox::indicator:hover {
+            border: 1px solid #5eaeff;
+        }
+        
+        /* Container widgets for our panels */
+        #edgeDetectionPanel, #activeContourPanel {
+            background-color: #1c1c1e;
         }
     """)
     
