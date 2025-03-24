@@ -358,7 +358,7 @@ def prewitt_edge_detection(image, direction=None):
     
     return EdgeDetection.prewitt(image, direction=dir_param)
 
-def canny_edge_detection(image, low_threshold=50, high_threshold=150):
+def canny_edge_detection(image, low_threshold=30, high_threshold=100):
     return EdgeDetection.Canny(image, low_threshold=low_threshold, high_threshold=high_threshold)
 
 def display_image(image: np.ndarray) -> QPixmap:
