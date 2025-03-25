@@ -275,7 +275,7 @@ class GreedySnake:
         
         return vis_image
     
-    def calculate_metrics(self):
+   def calculate_metrics(self):
         """
         Calculate perimeter and area of the contour.
         
@@ -289,10 +289,10 @@ class GreedySnake:
         contour_points_int = np.round(self.contour_points).astype(np.int32)
         
         # Calculate perimeter
-        perimeter = cv2.arcLength(contour_points_int, True)
+        perimeter = np.sum(np.sqrt(np.sum(np.diff(contour_points_int, axis=0)**2, axis=1)))
         
         # Calculate area
-        area = cv2.contourArea(contour_points_int)
+        area = 0.5 * np.abs(np.dot(contour_points_int[:, 0], np.roll(contour_points_int[:, 1], 1)) - np.dot(contour_points_int[:, 1], np.roll(contour_points_int[:, 0], 1)))
         
         return perimeter, area
     
