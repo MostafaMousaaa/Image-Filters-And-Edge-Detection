@@ -1917,7 +1917,6 @@ class MainWindow(QMainWindow):
         min_B = self.minor_axis_min_val.value()
         max_B = self.minor_axis_max_val.value()
         angle_step = self.dp_ellipse_resolution.value()
-        minDistance = min_A  # Minimum distance to merge ellipses
 
         # 5D accumulator (center_x, center_y, major axis A, minor axis B, angle)
         accumulator = np.zeros((height, width, max_A - min_A + 1, max_B - min_B + 1, len(range(0, 360, int(angle_step)))), dtype=np.int32)
@@ -1946,32 +1945,6 @@ class MainWindow(QMainWindow):
                                 A = A_index + min_A
                                 B = B_index + min_B
                                 detected_ellipses.append((a, b, A, B, theta))
-
-        '''# Merge overlapping ellipses
-        filtered_ellipses = []
-        for new_ellipse in detected_ellipses:
-            x1, y1, A1, B1, theta1 = new_ellipse
-            merged = False
-
-            for i, (x2, y2, A2, B2, theta2) in enumerate(filtered_ellipses):
-                distance = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-
-                if distance < minDistance and abs(A1 - A2) < minDistance and abs(B1 - B2) < minDistance:
-                    # Merge by averaging parameters
-                    merged_x = (x1 + x2) // 2
-                    merged_y = (y1 + y2) // 2
-                    merged_A = (A1 + A2) // 2
-                    merged_B = (B1 + B2) // 2
-                    merged_theta = (theta1 + theta2) // 2
-
-                    filtered_ellipses[i] = (merged_x, merged_y, merged_A, merged_B, merged_theta)
-                    merged = True
-                    break
-
-            if not merged:
-                filtered_ellipses.append(new_ellipse)
-
-        detected_ellipses = filtered_ellipses'''
 
         # Draw detected ellipses
         output_image = self.original_image.copy()
