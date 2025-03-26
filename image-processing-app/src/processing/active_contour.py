@@ -275,7 +275,7 @@ class GreedySnake:
         
         return vis_image
     
-   def calculate_metrics(self):
+    def calculate_metrics(self):
         """
         Calculate perimeter and area of the contour.
         

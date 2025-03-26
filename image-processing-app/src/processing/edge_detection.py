@@ -166,7 +166,7 @@ class EdgeDetection:
     
     
     @staticmethod
-    def apply_gaussian_filter(image, size=5, sigma=1.4):
+    def apply_gaussian_filter(image, size=3, sigma=2):
         print("entered gaussian smoothing")
         noisy_img = np.copy(image)            
         
@@ -180,21 +180,23 @@ class EdgeDetection:
         gaussian_kernel /= np.sum(gaussian_kernel)
         # print(f"gaussian kernel: {gaussian_kernel}")
         
-        if len(image.shape) == 3 and image.shape[2] == 3 :  #rgb image
-            for curr_channel in range(noisy_img.shape[2]):  # loop over the 3 channels as it's a colored img
-                # looping over the image pixels except the boundaries to update pixel values using the gaussian kernel
-                for row in range(half_kernel_size, noisy_img.shape[0] - half_kernel_size):   
-                    for col in range (half_kernel_size, noisy_img.shape[1] - half_kernel_size):
-                        used_range = noisy_img[ row-half_kernel_size : row+half_kernel_size+1 , col-half_kernel_size : col+half_kernel_size+1, curr_channel] # slicing to take the pixel and its neighbouring pixels in each loop.
-                        filtered_pixel = np.sum(gaussian_kernel * used_range)  # getting the new pixel value
+        # if len(image.shape) == 3 and image.shape[2] == 3 :  #rgb image
+        #     for curr_channel in range(noisy_img.shape[2]):  # loop over the 3 channels as it's a colored img
+        #         # looping over the image pixels except the boundaries to update pixel values using the gaussian kernel
+        #         for row in range(half_kernel_size, noisy_img.shape[0] - half_kernel_size):   
+        #             for col in range (half_kernel_size, noisy_img.shape[1] - half_kernel_size):
+        #                 used_range = noisy_img[ row-half_kernel_size : row+half_kernel_size+1 , col-half_kernel_size : col+half_kernel_size+1, curr_channel] # slicing to take the pixel and its neighbouring pixels in each loop.
+        #                 filtered_pixel = np.sum(gaussian_kernel * used_range)  # getting the new pixel value
                         
-                        noisy_img[row][col][curr_channel] = np.clip(0, 255, filtered_pixel)  # updating the current pixel in the noisy image
-        else:
-            for row in range(half_kernel_size, noisy_img.shape[0] - half_kernel_size):   
-                    for col in range (half_kernel_size, noisy_img.shape[1] - half_kernel_size):
-                        used_range = noisy_img[ row-half_kernel_size : row+half_kernel_size+1 , col-half_kernel_size : col+half_kernel_size+1] 
-                        filtered_pixel = np.sum(gaussian_kernel * used_range)   
-                        noisy_img[row][col] = np.clip(0, 255, filtered_pixel)
+        #                 noisy_img[row][col][curr_channel] = np.clip(0, 255, filtered_pixel)  # updating the current pixel in the noisy image
+        
+        # for row in range(half_kernel_size, noisy_img.shape[0] - half_kernel_size):   
+        #         for col in range (half_kernel_size, noisy_img.shape[1] - half_kernel_size):
+        #             used_range = noisy_img[ row-half_kernel_size : row+half_kernel_size+1 , col-half_kernel_size : col+half_kernel_size+1] 
+        #             filtered_pixel = np.sum(gaussian_kernel * used_range)   
+        #             noisy_img[row][col] = np.clip(0, 255, filtered_pixel)
+        
+        noisy_img = ndimage.convolve(image, gaussian_kernel)
                         
         return noisy_img
     
@@ -358,7 +360,7 @@ def prewitt_edge_detection(image, direction=None):
     
     return EdgeDetection.prewitt(image, direction=dir_param)
 
-def canny_edge_detection(image, low_threshold=30, high_threshold=100):
+def canny_edge_detection(image, low_threshold=50, high_threshold=150):
     return EdgeDetection.Canny(image, low_threshold=low_threshold, high_threshold=high_threshold)
 
 def display_image(image: np.ndarray) -> QPixmap:
