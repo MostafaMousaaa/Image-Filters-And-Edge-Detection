@@ -2,9 +2,9 @@ from PyQt6.QtWidgets import (QMainWindow, QFileDialog, QVBoxLayout, QWidget,
                             QHBoxLayout, QDockWidget, QTabWidget, QToolBar, QLabel, 
                             QComboBox, QSlider, QPushButton, QApplication, QGroupBox,
                             QSpinBox, QDoubleSpinBox, QRadioButton, QButtonGroup,
-                            QSplitter, QFrame, QMessageBox, QToolButton, QStatusBar)
+                            QSplitter, QFrame, QMessageBox, QToolButton, QStatusBar, QSizePolicy, QCheckBox)
 from PyQt6.QtGui import QIcon, QPixmap, QImage, QAction, QFont, QKeySequence, QActionGroup
-from PyQt6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve, QSettings
+from PyQt6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve, QSettings, pyqtSignal
 
 import cv2
 import numpy as np
@@ -33,6 +33,12 @@ from ..ui.widgets.contour_editor import ContourEditorWidget
 from ..ui.widgets.chain_code_display import ChainCodeDisplay
 
 class MainWindow(QMainWindow):
+    snake_params_changed = pyqtSignal(float, float, float, float, int)
+    canny_params_changed = pyqtSignal(int, int, int)
+    hough_lines_params_changed = pyqtSignal(float, float, int)
+    hough_circles_params_changed = pyqtSignal(float, int, int, int)
+    hough_ellipses_params_changed = pyqtSignal(float, int, int, int, int, int)
+
     def __init__(self, support_edge_detection=False, support_active_contours=False):
         super().__init__()
         self.setWindowTitle("Computer Vision - Image Processing App")
@@ -53,7 +59,7 @@ class MainWindow(QMainWindow):
         self.current_image = None
         self.first_image = None
         self.second_image = None  # For hybrid images
-        
+            
         # Initialize UI components
         self.init_ui()
         
@@ -68,11 +74,11 @@ class MainWindow(QMainWindow):
         # self.enable_image_operations(False)
         
         # Add edge detection and active contour support if requested
-        if support_edge_detection:
+        '''if support_edge_detection:
             self._init_edge_detection()
         
         if support_active_contours:
-            self._init_active_contours()
+            self._init_active_contours()'''
         
     def init_ui(self):
         # Create central widget with layout
@@ -282,9 +288,12 @@ class MainWindow(QMainWindow):
         # Frequency Domain tab
         self.setup_frequency_domain_tab()
         
-        
         # Dual Image View tab
         self.setup_dual_image_tab()
+
+        self.setup_contour()
+
+        self.setup_edge_detection()
         
         # Set tab icons if available
         try:
@@ -653,6 +662,632 @@ class MainWindow(QMainWindow):
         freq_layout.addStretch()
         
         self.sidebar.addTab(freq_widget, "Frequency Domain")
+
+    def setup_contour(self):
+        contour_widget = QWidget()
+        main_layout = QVBoxLayout(contour_widget)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.setSpacing(10)
+        
+        # Snake parameters - styled consistent with existing UI
+        snake_params_group = QGroupBox("Active Contour Model Parameters")
+        snake_params_group.setObjectName("paramGroupBox")
+        snake_params_layout = QVBoxLayout()
+        snake_params_layout.setSpacing(10)
+        
+        # Alpha (elasticity) parameter
+        alpha_layout = QHBoxLayout()
+        alpha_label = QLabel("Alpha (elasticity):")
+        alpha_label.setObjectName("paramLabel")
+        alpha_layout.addWidget(alpha_label)
+        
+        self.alpha_param = QDoubleSpinBox()
+        self.alpha_param.setRange(0.01, 10.0)
+        self.alpha_param.setSingleStep(0.1)
+        self.alpha_param.setValue(0.5)
+        self.alpha_param.setObjectName("paramSpinBox")
+        alpha_layout.addWidget(self.alpha_param)
+        snake_params_layout.addLayout(alpha_layout)
+        
+        # Beta (stiffness) parameter
+        beta_layout = QHBoxLayout()
+        beta_label = QLabel("Beta (stiffness):")
+        beta_label.setObjectName("paramLabel")
+        beta_layout.addWidget(beta_label)
+        
+        self.beta_param = QDoubleSpinBox()
+        self.beta_param.setRange(0.01, 10.0)
+        self.beta_param.setSingleStep(0.1)
+        self.beta_param.setValue(0.5)
+        self.beta_param.setObjectName("paramSpinBox")
+        beta_layout.addWidget(self.beta_param)
+        snake_params_layout.addLayout(beta_layout)
+        
+        # Gamma (time step) parameter
+        gamma_layout = QHBoxLayout()
+        gamma_label = QLabel("Gamma (time step):")
+        gamma_label.setObjectName("paramLabel")
+        gamma_layout.addWidget(gamma_label)
+        
+        self.gamma_param = QDoubleSpinBox()
+        self.gamma_param.setRange(0.01, 2.0)
+        self.gamma_param.setSingleStep(0.05)
+        self.gamma_param.setValue(0.1)
+        self.gamma_param.setObjectName("paramSpinBox")
+        gamma_layout.addWidget(self.gamma_param)
+        snake_params_layout.addLayout(gamma_layout)
+        
+        # External force weight
+        ext_weight_layout = QHBoxLayout()
+        ext_weight_label = QLabel("External force weight:")
+        ext_weight_label.setObjectName("paramLabel")
+        ext_weight_layout.addWidget(ext_weight_label)
+        
+        self.ext_weight = QDoubleSpinBox()
+        self.ext_weight.setRange(0.1, 10.0)
+        self.ext_weight.setSingleStep(0.1)
+        self.ext_weight.setValue(2.0)
+        self.ext_weight.setObjectName("paramSpinBox")
+        ext_weight_layout.addWidget(self.ext_weight)
+        snake_params_layout.addLayout(ext_weight_layout)
+        
+        # Max iterations
+        iterations_layout = QHBoxLayout()
+        iterations_label = QLabel("Max iterations:")
+        iterations_label.setObjectName("paramLabel")
+        iterations_layout.addWidget(iterations_label)
+        
+        self.max_iterations = QSpinBox()
+        self.max_iterations.setRange(10, 1000)
+        self.max_iterations.setSingleStep(10)
+        self.max_iterations.setValue(100)
+        self.max_iterations.setObjectName("paramSpinBox")
+        iterations_layout.addWidget(self.max_iterations)
+        snake_params_layout.addLayout(iterations_layout)
+        
+        snake_params_group.setLayout(snake_params_layout)
+        main_layout.addWidget(snake_params_group)
+        
+        # Action buttons - styled frame
+        buttons_group = QGroupBox("Actions")
+        buttons_group.setObjectName("actionGroupBox")
+        buttons_layout = QVBoxLayout()
+        buttons_layout.setSpacing(8)
+        
+        # Styled buttons consistent with application
+        self.initialize_button = QPushButton("Initialize Contour")
+        self.initialize_button.setToolTip("Click on image to place initial contour points")
+        self.initialize_button.setObjectName("actionButton")
+        buttons_layout.addWidget(self.initialize_button)
+        
+        self.evolve_button = QPushButton("Evolve Contour")
+        self.evolve_button.setObjectName("actionButton")
+        buttons_layout.addWidget(self.evolve_button)
+        
+        self.reset_button = QPushButton("Reset Contour")
+        self.reset_button.setObjectName("actionButton")
+        buttons_layout.addWidget(self.reset_button)
+        
+        buttons_group.setLayout(buttons_layout)
+        main_layout.addWidget(buttons_group)
+        
+        # Metrics group - styled frame
+        metrics_group = QGroupBox("Contour Metrics")
+        metrics_group.setObjectName("metricsGroupBox")
+        metrics_layout = QVBoxLayout()
+        metrics_layout.setSpacing(8)
+        
+        self.calculate_metrics_button = QPushButton("Calculate Perimeter and Area")
+        self.calculate_metrics_button.setObjectName("actionButton")
+        metrics_layout.addWidget(self.calculate_metrics_button)
+        
+        # Metrics display with styled frame
+        metrics_display_frame = QFrame()
+        metrics_display_frame.setObjectName("resultsFrame")
+        metrics_display_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        metrics_display_frame.setFrameShadow(QFrame.Shadow.Sunken)
+        metrics_display_layout = QHBoxLayout(metrics_display_frame)
+        
+        perimeter_label = QLabel("Perimeter:")
+        perimeter_label.setObjectName("metricLabel")
+        metrics_display_layout.addWidget(perimeter_label)
+        
+        self.perimeter_label = QLabel("--")
+        self.perimeter_label.setObjectName("metricValue")
+        self.perimeter_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.perimeter_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        metrics_display_layout.addWidget(self.perimeter_label)
+        
+        area_label = QLabel("Area:")
+        area_label.setObjectName("metricLabel")
+        metrics_display_layout.addWidget(area_label)
+        
+        self.area_label = QLabel("--")
+        self.area_label.setObjectName("metricValue")
+        self.area_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.area_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        metrics_display_layout.addWidget(self.area_label)
+        
+        metrics_layout.addWidget(metrics_display_frame)
+        
+        # Chain code display with checkbox
+        chain_code_layout = QHBoxLayout()
+        self.show_chain_code_checkbox = QCheckBox("Show Chain Code")
+        self.show_chain_code_checkbox.setObjectName("optionCheckbox")
+        chain_code_layout.addWidget(self.show_chain_code_checkbox)
+        metrics_layout.addLayout(chain_code_layout)
+        
+        metrics_group.setLayout(metrics_layout)
+        main_layout.addWidget(metrics_group)
+        
+        # Add stretch to push everything to the top
+        main_layout.addStretch()
+        
+        # Connect signals
+        self.alpha_param.valueChanged.connect(self._emit_snake_params)
+        self.beta_param.valueChanged.connect(self._emit_snake_params)
+        self.gamma_param.valueChanged.connect(self._emit_snake_params)
+        self.ext_weight.valueChanged.connect(self._emit_snake_params)
+        self.max_iterations.valueChanged.connect(self._emit_snake_params)
+        
+        self.initialize_button.clicked.connect(self._on_initialize_contour)
+        self.evolve_button.clicked.connect(self._on_evolve_contour)
+        self.reset_button.clicked.connect(self._on_reset_contour)
+        self.calculate_metrics_button.clicked.connect(self._on_calculate_metrics)
+        self.show_chain_code_checkbox.toggled.connect(self._on_show_chain_code)
+
+        self.sidebar.addTab(contour_widget, "Contour")
+    
+    def _emit_snake_params(self):
+        self.snake_params_changed.emit(
+            self.alpha_param.value(),
+            self.beta_param.value(),
+            self.gamma_param.value(),
+            self.ext_weight.value(),
+            self.max_iterations.value()
+        )
+    
+    def set_metric_values(self, perimeter, area):
+        """Update the perimeter and area display values"""
+        self.perimeter_label.setText(f"{perimeter:.2f} px")
+        self.area_label.setText(f"{area:.2f} px²")
+
+    def setup_edge_detection(self):
+        edge_detection_widget = QWidget()
+        main_layout = QVBoxLayout(edge_detection_widget)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Create tabbed interface with styling consistent with the existing tabs
+        tab_widget = QTabWidget()
+        tab_widget.setDocumentMode(True)
+        tab_widget.setTabPosition(QTabWidget.TabPosition.North)
+        
+        canny_tab = QWidget()
+        hough_tab = QWidget()
+        
+        # Style the frames with similar appearance to existing UI components
+        canny_tab.setObjectName("cannyTab")
+        hough_tab.setObjectName("houghTab")
+        
+        # Set up Canny edge detection tab
+        canny_layout = QVBoxLayout(canny_tab)
+        canny_layout.setContentsMargins(8, 8, 8, 8)
+        
+        # Canny parameters - using styled frame
+        canny_group = QGroupBox("Canny Edge Detector Parameters")
+        canny_group.setObjectName("paramGroupBox")
+        canny_params_layout = QVBoxLayout()
+        canny_params_layout.setSpacing(10)
+        
+        # Gaussian blur
+        blur_layout = QHBoxLayout()
+        blur_label = QLabel("Gaussian blur:")
+        blur_label.setObjectName("paramLabel")
+        blur_layout.addWidget(blur_label)
+        
+        self.blur_kernel_size = QSpinBox()
+        self.blur_kernel_size.setRange(3, 15)
+        self.blur_kernel_size.setSingleStep(2)  # Ensure odd values
+        self.blur_kernel_size.setValue(5)
+        self.blur_kernel_size.setObjectName("paramSpinBox")
+        blur_layout.addWidget(self.blur_kernel_size)
+        canny_params_layout.addLayout(blur_layout)
+        
+        # Low threshold - use styled slider
+        low_threshold_layout = QHBoxLayout()
+        low_threshold_label = QLabel("Low threshold:")
+        low_threshold_label.setObjectName("paramLabel")
+        low_threshold_layout.addWidget(low_threshold_label)
+        
+        self.low_threshold = QSlider(Qt.Orientation.Horizontal)
+        self.low_threshold.setRange(0, 255)
+        self.low_threshold.setValue(50)
+        self.low_threshold.setObjectName("paramSlider")
+        
+        self.low_threshold_label = QLabel("50")
+        self.low_threshold_label.setObjectName("valueLabel")
+        self.low_threshold_label.setMinimumWidth(30)
+        self.low_threshold_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        
+        low_threshold_layout.addWidget(self.low_threshold)
+        low_threshold_layout.addWidget(self.low_threshold_label)
+        canny_params_layout.addLayout(low_threshold_layout)
+        
+        # High threshold - use styled slider
+        high_threshold_layout = QHBoxLayout()
+        high_threshold_label = QLabel("High threshold:")
+        high_threshold_label.setObjectName("paramLabel")
+        high_threshold_layout.addWidget(high_threshold_label)
+        
+        self.high_threshold = QSlider(Qt.Orientation.Horizontal)
+        self.high_threshold.setRange(0, 255)
+        self.high_threshold.setValue(150)
+        self.high_threshold.setObjectName("paramSlider")
+        
+        self.high_threshold_label = QLabel("150")
+        self.high_threshold_label.setObjectName("valueLabel")
+        self.high_threshold_label.setMinimumWidth(30)
+        self.high_threshold_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        
+        high_threshold_layout.addWidget(self.high_threshold)
+        high_threshold_layout.addWidget(self.high_threshold_label)
+        canny_params_layout.addLayout(high_threshold_layout)
+        
+        # Apply button with consistent styling
+        self.apply_canny_button = QPushButton("Apply Canny Edge Detection")
+        self.apply_canny_button.setObjectName("actionButton")
+        canny_params_layout.addWidget(self.apply_canny_button)
+        
+        canny_group.setLayout(canny_params_layout)
+        canny_layout.addWidget(canny_group)
+        canny_layout.addStretch()
+        
+        # Set up Hough transform tab
+        hough_layout = QVBoxLayout(hough_tab)
+        hough_layout.setContentsMargins(8, 8, 8, 8)
+        
+        # Hough lines parameters - using styled frame
+        hough_lines_group = QGroupBox("Hough Line Transform Parameters")
+        hough_lines_group.setObjectName("paramGroupBox")
+        hough_lines_layout = QVBoxLayout()
+        hough_lines_layout.setSpacing(10)
+        
+        # Rho resolution
+        rho_layout = QHBoxLayout()
+        rho_label = QLabel("Rho resolution:")
+        rho_label.setObjectName("paramLabel")
+        rho_layout.addWidget(rho_label)
+        
+        self.rho_resolution = QDoubleSpinBox() # step size for the perpendicular distance between origin and detected line
+        self.rho_resolution.setRange(0.1, 10.0)
+        self.rho_resolution.setSingleStep(0.1)
+        self.rho_resolution.setValue(1.0)
+        self.rho_resolution.setObjectName("paramSpinBox")
+        rho_layout.addWidget(self.rho_resolution)
+        hough_lines_layout.addLayout(rho_layout)
+        
+        # Theta resolution
+        theta_layout = QHBoxLayout()
+        theta_label = QLabel("Theta resolution (Degree):")
+        theta_label.setObjectName("paramLabel")
+        theta_layout.addWidget(theta_label)
+        
+        self.theta_resolution = QDoubleSpinBox() # step size for theta in radians
+        self.theta_resolution.setRange(0.25, 5)
+        self.theta_resolution.setSingleStep(0.25)
+        self.theta_resolution.setValue(1)
+        self.theta_resolution.setObjectName("paramSpinBox")
+        theta_layout.addWidget(self.theta_resolution)
+        hough_lines_layout.addLayout(theta_layout)
+        
+        # Threshold for lines - styled slider
+        threshold_lines_layout = QHBoxLayout()
+        threshold_lines_label = QLabel("Threshold:")
+        threshold_lines_label.setObjectName("paramLabel")
+        threshold_lines_layout.addWidget(threshold_lines_label)
+        
+        self.threshold_lines = QSlider(Qt.Orientation.Horizontal) # minimum number of votes required for value to be considered a line
+        self.threshold_lines.setRange(10, 300)
+        self.threshold_lines.setValue(100)
+        self.threshold_lines.setObjectName("paramSlider")
+        
+        self.threshold_lines_label = QLabel("100")
+        self.threshold_lines_label.setObjectName("valueLabel")
+        self.threshold_lines_label.setMinimumWidth(30)
+        self.threshold_lines_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        
+        threshold_lines_layout.addWidget(self.threshold_lines)
+        threshold_lines_layout.addWidget(self.threshold_lines_label)
+        hough_lines_layout.addLayout(threshold_lines_layout)
+        
+        # Detect lines button - styled button
+        self.detect_lines_button = QPushButton("Detect Lines")
+        self.detect_lines_button.setObjectName("actionButton")
+        hough_lines_layout.addWidget(self.detect_lines_button)
+        
+        hough_lines_group.setLayout(hough_lines_layout)
+        hough_layout.addWidget(hough_lines_group)
+        
+        # Hough circles parameters - styled frame
+        hough_circles_group = QGroupBox("Hough Circle Transform Parameters")
+        hough_circles_group.setObjectName("paramGroupBox")
+        hough_circles_layout = QVBoxLayout()
+        hough_circles_layout.setSpacing(10)
+        
+        # DP accumulator resolution
+        dp_layout = QHBoxLayout()
+        dp_label = QLabel("Accumulator resolution (Theta step size):")
+        dp_label.setObjectName("paramLabel")
+        dp_layout.addWidget(dp_label)
+        
+        self.dp_resolution = QDoubleSpinBox()
+        self.dp_resolution.setRange(0.1, 1)
+        self.dp_resolution.setSingleStep(0.1)
+        self.dp_resolution.setValue(1.0)
+        self.dp_resolution.setObjectName("paramSpinBox")
+        dp_layout.addWidget(self.dp_resolution)
+        hough_circles_layout.addLayout(dp_layout)
+        
+        '''# Min distance between circles
+        min_dist_layout = QHBoxLayout()
+        min_dist_label = QLabel("Min distance between centers:")
+        min_dist_label.setObjectName("paramLabel")
+        min_dist_layout.addWidget(min_dist_label)
+        
+        self.min_distance = QSpinBox()
+        self.min_distance.setRange(1, 200)
+        self.min_distance.setValue(20)
+        self.min_distance.setObjectName("paramSpinBox")
+        min_dist_layout.addWidget(self.min_distance)
+        hough_circles_layout.addLayout(min_dist_layout)'''
+        
+        # Min and max radius
+        radius_layout = QHBoxLayout()
+        min_radius_label = QLabel("Min radius:")
+        min_radius_label.setObjectName("paramLabel")
+        radius_layout.addWidget(min_radius_label)
+        
+        self.min_radius = QSpinBox()
+        self.min_radius.setRange(0, 500)
+        self.min_radius.setValue(10)
+        self.min_radius.setObjectName("paramSpinBox")
+        radius_layout.addWidget(self.min_radius)
+        
+        max_radius_label = QLabel("Max radius:")
+        max_radius_label.setObjectName("paramLabel")
+        radius_layout.addWidget(max_radius_label)
+        
+        self.max_radius = QSpinBox()
+        self.max_radius.setRange(0, 500)
+        self.max_radius.setValue(15)
+        self.max_radius.setObjectName("paramSpinBox")
+        radius_layout.addWidget(self.max_radius)
+        hough_circles_layout.addLayout(radius_layout)
+        
+        # Threshold for circle detection - styled slider
+        threshold_circles_layout = QHBoxLayout()
+        threshold_circles_label = QLabel("Threshold:")
+        threshold_circles_label.setObjectName("paramLabel")
+        threshold_circles_layout.addWidget(threshold_circles_label)
+        
+        self.threshold_circles = QSlider(Qt.Orientation.Horizontal)
+        self.threshold_circles.setRange(10, 300)
+        self.threshold_circles.setValue(100)
+        self.threshold_circles.setObjectName("paramSlider")
+        
+        self.threshold_circles_label = QLabel("100")
+        self.threshold_circles_label.setObjectName("valueLabel")
+        self.threshold_circles_label.setMinimumWidth(30)
+        self.threshold_circles_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        
+        threshold_circles_layout.addWidget(self.threshold_circles)
+        threshold_circles_layout.addWidget(self.threshold_circles_label)
+        hough_circles_layout.addLayout(threshold_circles_layout)
+        
+        # Detection buttons - styled buttons
+        button_layout = QHBoxLayout()
+        
+        self.detect_circles_button = QPushButton("Detect Circles")
+        self.detect_circles_button.setObjectName("actionButton")
+        button_layout.addWidget(self.detect_circles_button)
+        
+        hough_circles_layout.addLayout(button_layout)
+        
+        hough_circles_group.setLayout(hough_circles_layout)
+        hough_layout.addWidget(hough_circles_group)
+
+         # Hough circles parameters - styled frame
+        hough_ellipse_group = QGroupBox("Hough Ellipse Transform Parameters")
+        hough_ellipse_group.setObjectName("paramGroupBox")
+        hough_ellipse_layout = QVBoxLayout()
+        hough_ellipse_layout.setSpacing(10)
+        
+        # DP accumulator resolution
+        dp_ellipse_layout = QHBoxLayout()
+        dp_ellipse_label = QLabel("Angle Step (Degree):")
+        dp_ellipse_label.setObjectName("paramLabel")
+        dp_ellipse_layout.addWidget(dp_ellipse_label)
+        
+        self.dp_ellipse_resolution = QDoubleSpinBox()
+        self.dp_ellipse_resolution.setRange(1, 360)
+        self.dp_ellipse_resolution.setSingleStep(1)
+        self.dp_ellipse_resolution.setValue(5.0)
+        self.dp_ellipse_resolution.setObjectName("paramSpinBox")
+        dp_ellipse_layout.addWidget(self.dp_ellipse_resolution)
+        hough_ellipse_layout.addLayout(dp_ellipse_layout)
+        
+        # Min and max radius
+        ellipse_radius_layout = QHBoxLayout()
+        min_ellipse_radius_label = QLabel("Major Axis Minimum Value:")
+        min_ellipse_radius_label.setObjectName("paramLabel")
+        ellipse_radius_layout.addWidget(min_ellipse_radius_label)
+        
+        self.major_axis_min_val = QSpinBox()
+        self.major_axis_min_val.setRange(0, 500)
+        self.major_axis_min_val.setValue(10)
+        self.major_axis_min_val.setObjectName("paramSpinBox")
+        ellipse_radius_layout.addWidget(self.major_axis_min_val)
+        
+        max_ellipse_radius_label = QLabel("Major Axis Maximum Value:")
+        max_ellipse_radius_label.setObjectName("paramLabel")
+        ellipse_radius_layout.addWidget(max_ellipse_radius_label)
+        
+        self.major_axis_max_val = QSpinBox()
+        self.major_axis_max_val.setRange(0, 500)
+        self.major_axis_max_val.setValue(10)
+        self.major_axis_max_val.setObjectName("paramSpinBox")
+        ellipse_radius_layout.addWidget(self.major_axis_max_val)
+        hough_ellipse_layout.addLayout(ellipse_radius_layout)
+
+        ellipse_minor_radius_layout = QHBoxLayout()
+        min_ellipse_minor_radius_label = QLabel("Minor Axis Minimum Value:")
+        min_ellipse_minor_radius_label.setObjectName("paramLabel")
+        ellipse_minor_radius_layout.addWidget(min_ellipse_minor_radius_label)
+        
+        self.minor_axis_min_val = QSpinBox()
+        self.minor_axis_min_val.setRange(0, 500)
+        self.minor_axis_min_val.setValue(10)
+        self.minor_axis_min_val.setObjectName("paramSpinBox")
+        ellipse_minor_radius_layout.addWidget(self.minor_axis_min_val)
+        
+        max_ellipse_minor_radius_label = QLabel("Minor Axis Maximum Value:")
+        max_ellipse_minor_radius_label.setObjectName("paramLabel")
+        ellipse_minor_radius_layout.addWidget(max_ellipse_minor_radius_label)
+        
+        self.minor_axis_max_val = QSpinBox()
+        self.minor_axis_max_val.setRange(0, 500)
+        self.minor_axis_max_val.setValue(10)
+        self.minor_axis_max_val.setObjectName("paramSpinBox")
+        ellipse_minor_radius_layout.addWidget(self.minor_axis_max_val)
+        hough_ellipse_layout.addLayout(ellipse_minor_radius_layout)
+        
+        # Threshold for ellipse detection - styled slider
+        threshold_ellipse_layout = QHBoxLayout()
+        threshold_ellipse_label = QLabel("Threshold:")
+        threshold_ellipse_label.setObjectName("paramLabel")
+        threshold_ellipse_layout.addWidget(threshold_ellipse_label)
+        
+        self.threshold_ellipse = QSlider(Qt.Orientation.Horizontal)
+        self.threshold_ellipse.setRange(10, 300)
+        self.threshold_ellipse.setValue(100)
+        self.threshold_ellipse.setObjectName("paramSlider")
+        
+        self.threshold_ellipse_label = QLabel("100")
+        self.threshold_ellipse_label.setObjectName("valueLabel")
+        self.threshold_ellipse_label.setMinimumWidth(30)
+        self.threshold_ellipse_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        
+        threshold_ellipse_layout.addWidget(self.threshold_ellipse)
+        threshold_ellipse_layout.addWidget(self.threshold_ellipse_label)
+        hough_ellipse_layout.addLayout(threshold_ellipse_layout)
+        
+        # Detection buttons - styled buttons
+        button_layout = QHBoxLayout()
+    
+        
+        self.detect_ellipses_button = QPushButton("Detect Ellipses")
+        self.detect_ellipses_button.setObjectName("actionButton")
+        button_layout.addWidget(self.detect_ellipses_button)
+        
+        hough_ellipse_layout.addLayout(button_layout)
+        
+        hough_ellipse_group.setLayout(hough_ellipse_layout)
+        hough_layout.addWidget(hough_ellipse_group)
+
+        # Add a checkbox to toggle OpenCV usage
+        self.use_opencv_checkbox = QCheckBox("Use OpenCV")
+        self.use_opencv_checkbox.setObjectName("paramCheckbox")
+        self.use_opencv_checkbox.setChecked(False)  # Default to not using OpenCV
+        hough_layout.addWidget(self.use_opencv_checkbox)
+        hough_layout.addStretch()
+        
+        # Add tabs to tab widget
+        tab_widget.addTab(canny_tab, "Canny Edge Detection")
+        tab_widget.addTab(hough_tab, "Hough Transform")
+        
+        main_layout.addWidget(tab_widget)
+        
+        # Connect signals
+        self.low_threshold.valueChanged.connect(self._update_low_threshold_label)
+        self.high_threshold.valueChanged.connect(self._update_high_threshold_label)
+        self.threshold_lines.valueChanged.connect(self._update_threshold_lines_label)
+        self.threshold_circles.valueChanged.connect(self._update_threshold_circles_label)
+        self.threshold_ellipse.valueChanged.connect(self._update_threshold_ellipses_label)
+        
+        self.blur_kernel_size.valueChanged.connect(self._emit_canny_params)
+        self.low_threshold.valueChanged.connect(self._emit_canny_params)
+        self.high_threshold.valueChanged.connect(self._emit_canny_params)
+        
+        self.rho_resolution.valueChanged.connect(self._emit_hough_lines_params)
+        self.theta_resolution.valueChanged.connect(self._emit_hough_lines_params)
+        self.threshold_lines.valueChanged.connect(self._emit_hough_lines_params)
+        
+        self.dp_resolution.valueChanged.connect(self._emit_hough_circles_params)
+        self.min_radius.valueChanged.connect(self._emit_hough_circles_params)
+        self.max_radius.valueChanged.connect(self._emit_hough_circles_params)
+        self.threshold_circles.valueChanged.connect(self._emit_hough_circles_params)
+
+        self.dp_ellipse_resolution.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.major_axis_min_val.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.major_axis_max_val.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.minor_axis_min_val.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.minor_axis_max_val.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.threshold_ellipse.valueChanged.connect(self._emit_hough_ellipses_params)
+        
+        self.apply_canny_button.clicked.connect(self._on_apply_canny)
+        self.detect_lines_button.clicked.connect(self._on_detect_lines)
+        self.detect_circles_button.clicked.connect(self._on_detect_circles)
+        self.detect_ellipses_button.clicked.connect(self._on_detect_ellipses)
+
+        self.sidebar.addTab(edge_detection_widget, "Edge Detection")
+    
+    def _update_low_threshold_label(self, value):
+        self.low_threshold_label.setText(str(value))
+    
+    def _update_high_threshold_label(self, value):
+        self.high_threshold_label.setText(str(value))
+    
+    def _update_threshold_lines_label(self, value):
+        self.threshold_lines_label.setText(str(value))
+    
+    def _update_threshold_circles_label(self, value):
+        self.threshold_circles_label.setText(str(value))
+    
+    def _update_threshold_ellipses_label(self, value):
+        self.threshold_ellipse_label.setText(str(value))
+    
+    def _emit_canny_params(self):
+        self.canny_params_changed.emit(
+            self.blur_kernel_size.value(),
+            self.low_threshold.value(),
+            self.high_threshold.value()
+        )
+    
+    def _emit_hough_lines_params(self):
+        self.hough_lines_params_changed.emit(
+            self.rho_resolution.value(),
+            self.theta_resolution.value(),
+            self.threshold_lines.value()
+        )
+    
+    def _emit_hough_circles_params(self):
+        self.hough_circles_params_changed.emit(
+            self.dp_resolution.value(),
+            self.min_radius.value(),
+            self.max_radius.value(),
+            self.threshold_circles.value()
+        )
+            
+    def _emit_hough_ellipses_params(self):
+            self.hough_ellipses_params_changed.emit(
+                self.dp_ellipse_resolution.value(),
+                self.major_axis_min_val.value(),
+                self.major_axis_max_val.value(),
+                self.minor_axis_min_val.value(),
+                self.minor_axis_max_val.value(),
+                self.threshold_ellipse.value()
+            )
+
 
     def on_filter_type_changed(self, button):
         selected_button = button.text()
@@ -1057,7 +1692,7 @@ class MainWindow(QMainWindow):
         settings.setValue("windowState", self.saveState())
         super().closeEvent(event)
 
-    def _init_edge_detection(self):
+    '''def _init_edge_detection(self):
         """Initialize edge detection panel and functionality"""
         # Create and set up the edge detection panel
         self.edge_detection_panel = EdgeDetectionPanel()
@@ -1170,6 +1805,217 @@ class MainWindow(QMainWindow):
         
         # Add action to View menu if it exists
         if hasattr(self, 'view_menu'):
+            self.view_menu.addAction(self.contour_dock.toggleViewAction())'''
+    
+    # Event handlers for edge detection
+    def _on_apply_canny(self):
+        self.statusBar().showMessage("Applying Canny edge detection...")
+        # Add actual implementation here
+    
+    def _on_detect_lines(self):
+        self.statusBar().showMessage("Detecting lines...")
+        if self.original_image is None:
+            return
+        self.current_image = convert_to_grayscale(self.original_image)
+        self.current_image = cv2.GaussianBlur(self.current_image, (5, 5), 1.5)
+        self.current_image = cv2.Canny(self.current_image, 50, 150)  # Lower and upper threshold
+    
+        height, width = self.current_image.shape
+        max_rho = int(np.sqrt((height ** 2) + (width ** 2)))
+
+        # Define the size of our accumulator matrix
+        rhos = np.arange(0, max_rho + 1, self.rho_resolution.value())
+        thetas = np.deg2rad(np.arange(0, 180, self.theta_resolution.value()))
+        accumulator = np.zeros((len(rhos), len(thetas)), dtype=np.int32)
+
+        if not self.use_opencv_checkbox.isChecked():            
+            # Fill the accumulator matrix with votes
+            edge_pixels = np.argwhere(self.current_image > 0)  # Get edge pixels efficiently
+            rhos_len = len(rhos)
+            for y, x in edge_pixels:
+                for theta_idx, theta in enumerate(thetas):
+                    rho = x * np.cos(theta) + y * np.sin(theta)
+                    rho_index = int(np.round(rho / self.rho_resolution.value()))
+                    if 0 <= rho_index < rhos_len:
+                        accumulator[rho_index, theta_idx] += 1
+            
+            # Extract lines (r, theta) from the accumulator matrix
+            detected_lines = []
+            for rho_idx in range(accumulator.shape[0]):  # Loop over rho values
+                for theta_idx in range(accumulator.shape[1]):  # Loop over theta values
+                    if accumulator[rho_idx, theta_idx] >= self.threshold_lines.value():
+                        rho = rhos[rho_idx]
+                        theta = thetas[theta_idx]
+                        detected_lines.append((rho, theta))
+        else:
+            # Apply OpenCV's Hough Line Transform
+            lines = cv2.HoughLines(self.current_image, rho=rhos[1] - rhos[0], theta=thetas[1] - thetas[0], threshold=self.threshold_lines.value())
+            detected_lines = []
+            for line in lines:
+                detected_lines.append(line[0])
+        
+        # Superimpose the lines
+        output_image = self.original_image.copy()
+        scale = max(width, height)         # Large scaling factor to extend the line across the image
+        for rho, theta in detected_lines:
+            # Compute two points far apart to draw the line
+            x0 = rho * np.cos(theta)
+            y0 = rho * np.sin(theta)
+
+            # The normal vector to the line is (cos(θ), sin(θ)), (points directly from the origin to the line)
+            # The direction of the actual line (which we want to draw) is perpendicular to this normal vector
+            # The perpendicular direction can be found by rotating the normal vector by 90 degrees
+
+            # Point in one direction
+            x1 = int(x0 + scale * (-np.sin(theta)))
+            y1 = int(y0 + scale * (np.cos(theta)))
+
+            # Point in opposite direction
+            x2 = int(x0 - scale * (-np.sin(theta)))
+            y2 = int(y0 - scale * (np.cos(theta)))
+
+            # Draw the line on the image (green color, thickness 2)
+            cv2.line(output_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+        self.current_image = output_image
+
+        self.update_image_display()
+    
+    def _on_detect_circles(self):
+        self.statusBar().showMessage("Detecting circles...")
+        if self.original_image is None:
+            return
+        self.current_image = convert_to_grayscale(self.original_image)
+        self.current_image = cv2.GaussianBlur(self.current_image, (5, 5), 1.5)
+        edges = cv2.Canny(self.current_image, 50, 100)
+    
+        # Define the size of our accumulator matrix
+        height, width = self.current_image.shape
+        minDistance = self.min_radius.value()
+        accumulator = np.zeros((height, width, self.max_radius.value() - self.min_radius.value() + 1), dtype=np.int32)
+
+        if not self.use_opencv_checkbox.isChecked():            
+            # Fill the accumulator matrix with votes
+            edge_pixels = np.argwhere(edges > 0)  # Get edge pixels efficiently
+            for y, x in edge_pixels:
+                for r in range(self.min_radius.value(), self.max_radius.value() + 1):
+                    # To vote for potential centers, we consider all possible directions around the edge
+                    for theta in range(0, 360, max(1, int(1 / self.dp_resolution.value()))):  # Step based on dp
+                        # circle center
+                        a = int(x - r * np.cos(np.deg2rad(theta)))
+                        b = int(y - r * np.sin(np.deg2rad(theta)))
+                        
+                        if 0 <= a < height and 0 <= b < width:
+                            accumulator[a, b, r - self.min_radius.value()] += 1 # r is minus min_radius as index starts from 0
+            
+            # Extract detected circles
+            detected_circles = []            
+            for a in range(height):
+                for b in range(width):
+                    for r_index, votes in enumerate(accumulator[a, b]):
+                        if votes > self.threshold_circles.value():
+                            r = r_index + self.min_radius.value()
+                            detected_circles.append((a, b, r))
+            
+            # Min Distance Check (If circles are closer than the minimum distance allowed, we merge them together to be 1 circle)
+            filtered_circles = []
+
+            for new_circle in detected_circles:
+                x1, y1, r1 = new_circle
+                merged = False
+
+                for i, (x2, y2, r2) in enumerate(filtered_circles):
+                    distance = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+                    
+                    if distance < minDistance:
+                        # Merge by averaging centers & radii
+                        merged_x = (x1 + x2) // 2
+                        merged_y = (y1 + y2) // 2
+                        merged_r = (r1 + r2) // 2
+
+                        filtered_circles[i] = (merged_x, merged_y, merged_r)
+                        merged = True
+                        break  # Stop checking more circles once merged
+
+                if not merged:
+                    filtered_circles.append(new_circle)
+
+            detected_circles = filtered_circles
+        else:
+            # Apply OpenCV's Hough Circle Transform
+            circles = cv2.HoughCircles(self.current_image, cv2.HOUGH_GRADIENT, dp=self.dp_resolution.value(), minDist=minDistance, param1=100,
+                                       param2=self.threshold_circles.value(), minRadius=self.min_radius.value(), maxRadius=self.max_radius.value())
+            detected_circles = []
+            if circles is not None:
+                circles = np.uint16(np.around(circles))  # Round values for drawing
+                for circle in circles[0, :]:
+                    a, b, r = circle  # Extract center (a, b) and radius (r)
+                    detected_circles.append((a, b, r))
+                
+        # Superimpose the lines
+        output_image = self.original_image.copy()
+        for x, y, r in detected_circles:
+                cv2.circle(output_image, (x, y), r, (0, 255, 0), 2)  # Draw outer circle
+                
+        self.current_image = output_image
+
+        self.update_image_display()
+    
+    def _on_detect_ellipses(self):
+        self.statusBar().showMessage("Detecting ellipses...")
+        if self.original_image is None:
+            return
+        self.current_image = convert_to_grayscale(self.original_image)
+        self.current_image = cv2.GaussianBlur(self.current_image, (5, 5), 1.5)
+        edges = cv2.Canny(self.current_image, 50, 150)
+
+        # Define accumulator dimensions
+        height, width = self.current_image.shape
+        min_A = self.major_axis_min_val.value()
+        max_A = self.major_axis_max_val.value()
+        min_B = self.minor_axis_min_val.value()
+        max_B = self.minor_axis_max_val.value()
+        angle_step = self.dp_ellipse_resolution.value()
+
+        # 5D accumulator (center_x, center_y, major axis A, minor axis B, angle)
+        accumulator = np.zeros((height, width, max_A - min_A + 1, max_B - min_B + 1, len(range(0, 360, int(angle_step)))), dtype=np.int32)
+
+        edge_pixels = np.argwhere(edges > 0)  # Get edge pixels efficiently
+        for y, x in edge_pixels:
+            for A in range(min_A, max_A + 1):
+                for B in range(min_B, max_B + 1):
+                    for theta_index, theta in enumerate(range(0, 360, int(angle_step))): # Rotation angle
+                        rad = np.deg2rad(theta)
+                        a = int(x - A * np.cos(rad))
+                        b = int(y - B * np.sin(rad))
+
+                        if 0 <= a < height and 0 <= b < width:
+                            accumulator[a, b, A - min_A, B - min_B, theta_index] += 1
+
+        # Extract detected ellipses
+        detected_ellipses = []
+        for a in range(height):
+            for b in range(width):
+                for A_index in range(max_A - min_A + 1):
+                    for B_index in range(max_B - min_B + 1):
+                        for theta_index, theta in enumerate(range(0, 360, int(angle_step))):
+                            votes = accumulator[a, b, A_index, B_index, theta_index]
+                            if votes > self.threshold_ellipse.value():
+                                A = A_index + min_A
+                                B = B_index + min_B
+                                detected_ellipses.append((a, b, A, B, theta))
+
+        # Draw detected ellipses
+        output_image = self.original_image.copy()
+        for x, y, A, B, theta in detected_ellipses:
+            cv2.ellipse(output_image, (x, y), (A, B), theta, 0, 360, (0, 255, 0), 2)
+        
+        self.current_image = output_image
+
+        self.update_image_display()
+    
+    # Event handlers for active contours
+    def _on_initialize_contour(self):
             self.view_menu.addAction(self.contour_dock.toggleViewAction())
             self.view_menu.addAction(self.chain_code_dock.toggleViewAction())
     
@@ -1307,7 +2153,6 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Calculated metrics: Perimeter={perimeter:.2f}, Area={area:.2f}")
     
     def _on_show_chain_code(self, show):
-        """Show or hide chain code representation"""
         if show:
             # Make sure we have a contour
             if not self.contour_initialized or self.snake is None:
@@ -1324,190 +2169,6 @@ class MainWindow(QMainWindow):
             # Hide chain code dock
             self.chain_code_dock.hide()
             self.statusBar().showMessage("Hiding chain code")
-
-    # Event handlers for edge detection
-    def _on_apply_canny(self):
-        # """Apply Canny edge detection with current parameters"""
-        # if self.current_image is None:
-        #     self.statusBar().showMessage("No image loaded")
-        #     return
-        
-        # # Get parameters from the edge detection panel
-        # kernel_size = self.edge_detection_panel.blur_kernel_size.value()
-        # low_threshold = self.edge_detection_panel.low_threshold.value()
-        # high_threshold = self.edge_detection_panel.high_threshold.value()
-        
-        # # Ensure kernel size is odd
-        # if kernel_size % 2 == 0:
-        #     kernel_size += 1
-        
-        # # Convert image to grayscale if needed
-        # if len(self.current_image.shape) == 3:
-        #     gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
-        # else:
-        #     gray = self.current_image.copy()
-        
-        # # Apply Gaussian blur
-        # blurred = cv2.GaussianBlur(gray, (kernel_size, kernel_size), 0)
-        
-        # # Apply Canny edge detection
-        # edges = cv2.Canny(blurred, low_threshold, high_threshold)
-        
-        # # Convert to BGR for display
-        # self.current_image = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-        
-        # # Update display
-        # self.update_image_display()
-        # self.statusBar().showMessage(f"Applied Canny edge detection (kernel={kernel_size}, low={low_threshold}, high={high_threshold})")
-        pass
-
-    def _on_detect_lines(self):
-        # """Detect lines using Hough transform"""
-        # if self.current_image is None:
-        #     self.statusBar().showMessage("No image loaded")
-        #     return
-        
-        # # Get parameters from the edge detection panel
-        # rho = self.edge_detection_panel.rho_resolution.value()
-        # theta = self.edge_detection_panel.theta_resolution.value()
-        # threshold = self.edge_detection_panel.threshold_lines.value()
-        
-        # # Make a copy of the original image to draw lines on
-        # result_image = self.original_image.copy()
-        
-        # # Convert to grayscale if needed
-        # if len(self.current_image.shape) == 3:
-        #     gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
-        # else:
-        #     gray = self.current_image.copy()
-        
-        # # Apply Canny edge detection first
-        # edges = cv2.Canny(gray, 50, 150, apertureSize=3)
-        
-        # # Detect lines
-        # lines = cv2.HoughLines(edges, rho, theta, threshold)
-        
-        # # Draw detected lines
-        # if lines is not None:
-        #     for line in lines:
-        #         rho_val, theta_val = line[0]
-        #         a = np.cos(theta_val)
-        #         b = np.sin(theta_val)
-        #         x0 = a * rho_val
-        #         y0 = b * rho_val
-        #         x1 = int(x0 + 1000 * (-b))
-        #         y1 = int(y0 + 1000 * (a))
-        #         x2 = int(x0 - 1000 * (-b))
-        #         y2 = int(y0 - 1000 * (a))
-                
-        #         cv2.line(result_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
-        
-        # # Update the current image
-        # self.current_image = result_image
-        
-        # # Update display
-        # self.update_image_display()
-        # self.statusBar().showMessage(f"Detected {0 if lines is None else len(lines)} lines with Hough transform")
-        pass 
-    def _on_detect_circles(self):
-        # """Detect circles using Hough transform"""
-        # if self.current_image is None:
-        #     self.statusBar().showMessage("No image loaded")
-        #     return
-        
-        # # Get parameters from the edge detection panel
-        # dp = self.edge_detection_panel.dp_resolution.value()
-        # min_dist = self.edge_detection_panel.min_distance.value()
-        # min_radius = self.edge_detection_panel.min_radius.value()
-        # max_radius = self.edge_detection_panel.max_radius.value()
-        # threshold = self.edge_detection_panel.threshold_circles.value()
-        
-        # # Make a copy of the original image to draw circles on
-        # result_image = self.original_image.copy()
-        
-        # # Convert to grayscale if needed
-        # if len(self.current_image.shape) == 3:
-        #     gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
-        # else:
-        #     gray = self.current_image.copy()
-        
-        # # Apply Gaussian blur to reduce noise
-        # gray = cv2.GaussianBlur(gray, (5, 5), 0)
-        
-        # # Detect circles
-        # circles = cv2.HoughCircles(
-        #     gray, 
-        #     cv2.HOUGH_GRADIENT, 
-        #     dp, 
-        #     min_dist, 
-        #     param1=100,  # Upper Canny threshold (fixed)
-        #     param2=threshold,  # Accumulator threshold 
-        #     minRadius=min_radius, 
-        #     maxRadius=max_radius
-        # )
-        
-        # # Draw detected circles
-        # if circles is not None:
-        #     circles = np.uint16(np.around(circles))
-        #     for circle in circles[0, :]:
-        #         # Draw the outer circle
-        #         center = (circle[0], circle[1])
-        #         radius = circle[2]
-        #         cv2.circle(result_image, center, radius, (0, 255, 0), 2)
-                
-        #         # Draw the center of the circle
-        #         cv2.circle(result_image, center, 2, (0, 0, 255), 3)
-        
-        # # Update the current image
-        # self.current_image = result_image
-        
-        # # Update display
-        # self.update_image_display()
-        # self.statusBar().showMessage(f"Detected {0 if circles is None else len(circles[0])} circles with Hough transform")
-        pass
-    def _on_detect_ellipses(self):
-        # """Detect ellipses using contour fitting"""
-        # if self.current_image is None:
-        #     self.statusBar().showMessage("No image loaded")
-        #     return
-        
-        # # Make a copy of the original image to draw ellipses on
-        # result_image = self.original_image.copy()
-        
-        # # Convert to grayscale if needed
-        # if len(self.current_image.shape) == 3:
-        #     gray = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
-        # else:
-        #     gray = self.current_image.copy()
-        
-        # # Apply threshold to get binary image
-        # _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
-        
-        # # Find contours
-        # contours, _ = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        
-        # # Filter contours by area and fit ellipses
-        # min_area = 100  # Minimum contour area to consider
-        # ellipses_count = 0
-        
-        # for contour in contours:
-        #     # Skip small contours
-        #     if cv2.contourArea(contour) < min_area:
-        #         continue
-            
-        #     # Need at least 5 points to fit an ellipse
-        #     if len(contour) >= 5:
-        #         ellipse = cv2.fitEllipse(contour)
-        #         cv2.ellipse(result_image, ellipse, (255, 0, 255), 2)
-        #         ellipses_count += 1
-        
-        # # Update the current image
-        # self.current_image = result_image
-        
-        # # Update display
-        # self.update_image_display()
-        # self.statusBar().showMessage(f"Detected {ellipses_count} ellipses from contours")
-        pass
    
 def main():
     app = QApplication(sys.argv)

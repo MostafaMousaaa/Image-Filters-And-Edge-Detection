@@ -176,19 +176,6 @@ class ActiveContourPanel(QWidget):
         metrics_group.setLayout(metrics_layout)
         main_layout.addWidget(metrics_group)
         
-        # Status label with styled appearance
-        status_frame = QFrame()
-        status_frame.setObjectName("statusFrame")
-        status_frame.setFrameShape(QFrame.Shape.StyledPanel)
-        status_layout = QVBoxLayout(status_frame)
-        
-        self.status_label = QLabel("Ready to initialize contour")
-        self.status_label.setObjectName("statusLabel")
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        status_layout.addWidget(self.status_label)
-        
-        main_layout.addWidget(status_frame)
-        
         # Add stretch to push everything to the top
         main_layout.addStretch()
         
@@ -218,7 +205,3 @@ class ActiveContourPanel(QWidget):
         """Update the perimeter and area display values"""
         self.perimeter_label.setText(f"{perimeter:.2f} px")
         self.area_label.setText(f"{area:.2f} px²")
-    
-    def set_status(self, message):
-        """Update the status label"""
-        self.status_label.setText(message)
