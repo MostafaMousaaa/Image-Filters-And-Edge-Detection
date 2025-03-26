@@ -314,7 +314,9 @@ class GreedySnake:
         chain_code = []
         # Convert points to integers
         points = np.round(self.contour_points).astype(np.int32)
-        
+        print(f'points: {points}')
+        directions = [(0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1), (1, 0), (1, 1)]
+        direction_labels = ["R", "UR", "U", "UL", "L", "DL", "D", "DR"]
         # Calculate chain code for each pair of consecutive points
         for i in range(len(points)):
             current = points[i]
@@ -325,27 +327,11 @@ class GreedySnake:
             dy = next_point[1] - current[1]
             
             # Determine direction code
-            if dx == 1 and dy == 0:
-                code = 0
-            elif dx == 1 and dy == -1:
-                code = 1
-            elif dx == 0 and dy == -1:
-                code = 2
-            elif dx == -1 and dy == -1:
-                code = 3
-            elif dx == -1 and dy == 0:
-                code = 4
-            elif dx == -1 and dy == 1:
-                code = 5
-            elif dx == 0 and dy == 1:
-                code = 6
-            elif dx == 1 and dy == 1:
-                code = 7
-            else:
-                # If displacement is larger than 1 pixel, skip it
-                continue
+            if (dx,dy) in directions:
+                chain_code.append(direction_labels[directions.index((dx, dy))])
             
-            chain_code.append(code)
+            
+        print(chain_code)
         
         return chain_code
 
