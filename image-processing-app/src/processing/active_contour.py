@@ -95,7 +95,7 @@ class GreedySnake:
     
     def _curvature_energy(self, prev_point, current_point, next_point):
         """
-        Calculate curvature energy to maintain smooth curves.
+        Calculate curvature energy to maintain smooth curves.(Angels between the points)
         
         Parameters:
             prev_point: Previous point in the contour
@@ -111,7 +111,7 @@ class GreedySnake:
     
     def _external_energy(self, point):
         """
-        Calculate external energy from the edge map.
+        Calculate external energy from the edge map.(Edge strength at the point)
         
         Parameters:
             point: Point in the contour
