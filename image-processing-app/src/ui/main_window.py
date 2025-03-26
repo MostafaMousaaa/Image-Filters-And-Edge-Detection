@@ -954,7 +954,7 @@ class MainWindow(QMainWindow):
         rho_label.setObjectName("paramLabel")
         rho_layout.addWidget(rho_label)
         
-        self.rho_resolution = QDoubleSpinBox()
+        self.rho_resolution = QDoubleSpinBox() # step size for the perpendicular distance between origin and detected line
         self.rho_resolution.setRange(0.1, 10.0)
         self.rho_resolution.setSingleStep(0.1)
         self.rho_resolution.setValue(1.0)
@@ -964,14 +964,14 @@ class MainWindow(QMainWindow):
         
         # Theta resolution
         theta_layout = QHBoxLayout()
-        theta_label = QLabel("Theta resolution (radians):")
+        theta_label = QLabel("Theta resolution (Degree):")
         theta_label.setObjectName("paramLabel")
         theta_layout.addWidget(theta_label)
         
-        self.theta_resolution = QDoubleSpinBox()
-        self.theta_resolution.setRange(0.001, 0.1)
-        self.theta_resolution.setSingleStep(0.001)
-        self.theta_resolution.setValue(0.01)
+        self.theta_resolution = QDoubleSpinBox() # step size for theta in radians
+        self.theta_resolution.setRange(0.25, 5)
+        self.theta_resolution.setSingleStep(0.25)
+        self.theta_resolution.setValue(1)
         self.theta_resolution.setObjectName("paramSpinBox")
         theta_layout.addWidget(self.theta_resolution)
         hough_lines_layout.addLayout(theta_layout)
@@ -982,7 +982,7 @@ class MainWindow(QMainWindow):
         threshold_lines_label.setObjectName("paramLabel")
         threshold_lines_layout.addWidget(threshold_lines_label)
         
-        self.threshold_lines = QSlider(Qt.Orientation.Horizontal)
+        self.threshold_lines = QSlider(Qt.Orientation.Horizontal) # minimum number of votes required for value to be considered a line
         self.threshold_lines.setRange(10, 300)
         self.threshold_lines.setValue(100)
         self.threshold_lines.setObjectName("paramSlider")
@@ -1095,6 +1095,12 @@ class MainWindow(QMainWindow):
         
         hough_circles_group.setLayout(hough_circles_layout)
         hough_layout.addWidget(hough_circles_group)
+
+        # Add a checkbox to toggle OpenCV usage
+        self.use_opencv_checkbox = QCheckBox("Use OpenCV")
+        self.use_opencv_checkbox.setObjectName("paramCheckbox")
+        self.use_opencv_checkbox.setChecked(False)  # Default to not using OpenCV
+        hough_layout.addWidget(self.use_opencv_checkbox)
         hough_layout.addStretch()
         
         # Add tabs to tab widget
@@ -1631,44 +1637,100 @@ class MainWindow(QMainWindow):
     
     # Event handlers for edge detection
     def _on_apply_canny(self):
-        """Apply Canny edge detection with current parameters"""
-        # Implementation will depend on your image processing backend
         self.statusBar().showMessage("Applying Canny edge detection...")
         # Add actual implementation here
     
     def _on_detect_lines(self):
-        """Detect lines using Hough transform"""
         self.statusBar().showMessage("Detecting lines...")
-        # Add actual implementation here
+        if self.original_image is None:
+            return
+        self.current_image = convert_to_grayscale(self.original_image)
+        self.current_image = cv2.GaussianBlur(self.current_image, (5, 5), 1.5)
+        self.current_image = cv2.Canny(self.current_image, 50, 150)  # Lower and upper threshold
+    
+        height, width = self.current_image.shape
+        max_rho = int(np.sqrt((height ** 2) + (width ** 2)))
+
+        # Define the size of our accumulator matrix
+        rhos = np.arange(0, max_rho + 1, self.rho_resolution.value())
+        thetas = np.deg2rad(np.arange(0, 180, self.theta_resolution.value()))
+        accumulator = np.zeros((len(rhos), len(thetas)), dtype=np.int32)
+
+        if not self.use_opencv_checkbox.isChecked():            
+            # Fill the accumulator matrix with votes
+            edge_pixels = np.argwhere(self.current_image > 0)  # Get edge pixels efficiently
+            rhos_len = len(rhos)
+            for y, x in edge_pixels:
+                for theta_idx, theta in enumerate(thetas):
+                    rho = x * np.cos(theta) + y * np.sin(theta)
+                    rho_index = int(np.round(rho / self.rho_resolution.value()))
+                    if 0 <= rho_index < rhos_len:
+                        accumulator[rho_index, theta_idx] += 1
+            
+            # Extract lines (r, theta) from the accumulator matrix
+            detected_lines = []
+            for rho_idx in range(accumulator.shape[0]):  # Loop over rho values
+                for theta_idx in range(accumulator.shape[1]):  # Loop over theta values
+                    if accumulator[rho_idx, theta_idx] >= self.threshold_lines.value():
+                        rho = rhos[rho_idx]
+                        theta = thetas[theta_idx]
+                        detected_lines.append((rho, theta))
+        else:
+            # Apply OpenCV's Hough Line Transform
+            lines = cv2.HoughLines(self.current_image, rho=rhos[1] - rhos[0], theta=thetas[1] - thetas[0], threshold=self.threshold_lines.value())
+            detected_lines = []
+            for line in lines:
+                detected_lines.append(line[0])
+        
+        # Superimpose the lines
+        output_image = self.original_image.copy()
+        scale = max(width, height)         # Large scaling factor to extend the line across the image
+        for rho, theta in detected_lines:
+            # Compute two points far apart to draw the line
+            x0 = rho * np.cos(theta)
+            y0 = rho * np.sin(theta)
+
+            # The normal vector to the line is (cos(θ), sin(θ)), (points directly from the origin to the line)
+            # The direction of the actual line (which we want to draw) is perpendicular to this normal vector
+            # The perpendicular direction can be found by rotating the normal vector by 90 degrees
+
+            # Point in one direction
+            x1 = int(x0 + scale * (-np.sin(theta)))
+            y1 = int(y0 + scale * (np.cos(theta)))
+
+            # Point in opposite direction
+            x2 = int(x0 - scale * (-np.sin(theta)))
+            y2 = int(y0 - scale * (np.cos(theta)))
+
+            # Draw the line on the image (green color, thickness 2)
+            cv2.line(output_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+        self.current_image = output_image
+
+        self.update_image_display()
     
     def _on_detect_circles(self):
-        """Detect circles using Hough transform"""
         self.statusBar().showMessage("Detecting circles...")
         # Add actual implementation here
     
     def _on_detect_ellipses(self):
-        """Detect ellipses"""
         self.statusBar().showMessage("Detecting ellipses...")
         # Add actual implementation here
     
     # Event handlers for active contours
     def _on_initialize_contour(self):
-        """Initialize contour points"""
         self.statusBar().showMessage("Click on image to place initial contour points...")
         # Add actual implementation here
     
     def _on_evolve_contour(self):
-        """Evolve the active contour"""
         self.statusBar().showMessage("Evolving contour...")
         # Add actual implementation here
     
     def _on_reset_contour(self):
-        """Reset the contour"""
         self.statusBar().showMessage("Contour reset")
         # Add actual implementation here
     
     def _on_calculate_metrics(self):
-        """Calculate and display contour metrics"""
         self.statusBar().showMessage("Calculating perimeter and area...")
         # Example values - replace with actual calculation
         perimeter = 142.5
@@ -1676,7 +1738,6 @@ class MainWindow(QMainWindow):
         self.active_contour_panel.set_metric_values(perimeter, area)
     
     def _on_show_chain_code(self, show):
-        """Show or hide chain code representation"""
         if show:
             self.statusBar().showMessage("Showing chain code")
         else:
