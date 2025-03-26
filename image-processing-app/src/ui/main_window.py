@@ -34,7 +34,7 @@ class MainWindow(QMainWindow):
     canny_params_changed = pyqtSignal(int, int, int)
     hough_lines_params_changed = pyqtSignal(float, float, int)
     hough_circles_params_changed = pyqtSignal(float, int, int, int)
-    hough_ellipses_params_changed = pyqtSignal(float, int, int, int)
+    hough_ellipses_params_changed = pyqtSignal(float, int, int, int, int, int)
 
     def __init__(self, support_edge_detection=False, support_active_contours=False):
         super().__init__()
@@ -1101,40 +1101,62 @@ class MainWindow(QMainWindow):
         
         # DP accumulator resolution
         dp_ellipse_layout = QHBoxLayout()
-        dp_ellipse_label = QLabel("Accumulator resolution (Theta step size):")
+        dp_ellipse_label = QLabel("Angle Step (Degree):")
         dp_ellipse_label.setObjectName("paramLabel")
         dp_ellipse_layout.addWidget(dp_ellipse_label)
         
         self.dp_ellipse_resolution = QDoubleSpinBox()
-        self.dp_ellipse_resolution.setRange(1, 5)
-        self.dp_ellipse_resolution.setSingleStep(0.5)
-        self.dp_ellipse_resolution.setValue(1.0)
+        self.dp_ellipse_resolution.setRange(1, 360)
+        self.dp_ellipse_resolution.setSingleStep(1)
+        self.dp_ellipse_resolution.setValue(5.0)
         self.dp_ellipse_resolution.setObjectName("paramSpinBox")
         dp_ellipse_layout.addWidget(self.dp_ellipse_resolution)
         hough_ellipse_layout.addLayout(dp_ellipse_layout)
         
         # Min and max radius
         ellipse_radius_layout = QHBoxLayout()
-        min_ellipse_radius_label = QLabel("Min radius:")
+        min_ellipse_radius_label = QLabel("Major Axis Minimum Value:")
         min_ellipse_radius_label.setObjectName("paramLabel")
         ellipse_radius_layout.addWidget(min_ellipse_radius_label)
         
-        self.min_ellipse_radius = QSpinBox()
-        self.min_ellipse_radius.setRange(0, 200)
-        self.min_ellipse_radius.setValue(10)
-        self.min_ellipse_radius.setObjectName("paramSpinBox")
-        ellipse_radius_layout.addWidget(self.min_ellipse_radius)
+        self.major_axis_min_val = QSpinBox()
+        self.major_axis_min_val.setRange(0, 500)
+        self.major_axis_min_val.setValue(10)
+        self.major_axis_min_val.setObjectName("paramSpinBox")
+        ellipse_radius_layout.addWidget(self.major_axis_min_val)
         
-        max_ellipse_radius_label = QLabel("Max radius:")
+        max_ellipse_radius_label = QLabel("Major Axis Maximum Value:")
         max_ellipse_radius_label.setObjectName("paramLabel")
         ellipse_radius_layout.addWidget(max_ellipse_radius_label)
         
-        self.max_ellipse_radius = QSpinBox()
-        self.max_ellipse_radius.setRange(0, 500)
-        self.max_ellipse_radius.setValue(15)
-        self.max_ellipse_radius.setObjectName("paramSpinBox")
-        ellipse_radius_layout.addWidget(self.max_ellipse_radius)
+        self.major_axis_max_val = QSpinBox()
+        self.major_axis_max_val.setRange(0, 500)
+        self.major_axis_max_val.setValue(10)
+        self.major_axis_max_val.setObjectName("paramSpinBox")
+        ellipse_radius_layout.addWidget(self.major_axis_max_val)
         hough_ellipse_layout.addLayout(ellipse_radius_layout)
+
+        ellipse_minor_radius_layout = QHBoxLayout()
+        min_ellipse_minor_radius_label = QLabel("Minor Axis Minimum Value:")
+        min_ellipse_minor_radius_label.setObjectName("paramLabel")
+        ellipse_minor_radius_layout.addWidget(min_ellipse_minor_radius_label)
+        
+        self.minor_axis_min_val = QSpinBox()
+        self.minor_axis_min_val.setRange(0, 500)
+        self.minor_axis_min_val.setValue(10)
+        self.minor_axis_min_val.setObjectName("paramSpinBox")
+        ellipse_minor_radius_layout.addWidget(self.minor_axis_min_val)
+        
+        max_ellipse_minor_radius_label = QLabel("Minor Axis Maximum Value:")
+        max_ellipse_minor_radius_label.setObjectName("paramLabel")
+        ellipse_minor_radius_layout.addWidget(max_ellipse_minor_radius_label)
+        
+        self.minor_axis_max_val = QSpinBox()
+        self.minor_axis_max_val.setRange(0, 500)
+        self.minor_axis_max_val.setValue(10)
+        self.minor_axis_max_val.setObjectName("paramSpinBox")
+        ellipse_minor_radius_layout.addWidget(self.minor_axis_max_val)
+        hough_ellipse_layout.addLayout(ellipse_minor_radius_layout)
         
         # Threshold for ellipse detection - styled slider
         threshold_ellipse_layout = QHBoxLayout()
@@ -1203,8 +1225,10 @@ class MainWindow(QMainWindow):
         self.threshold_circles.valueChanged.connect(self._emit_hough_circles_params)
 
         self.dp_ellipse_resolution.valueChanged.connect(self._emit_hough_ellipses_params)
-        self.min_ellipse_radius.valueChanged.connect(self._emit_hough_ellipses_params)
-        self.max_ellipse_radius.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.major_axis_min_val.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.major_axis_max_val.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.minor_axis_min_val.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.minor_axis_max_val.valueChanged.connect(self._emit_hough_ellipses_params)
         self.threshold_ellipse.valueChanged.connect(self._emit_hough_ellipses_params)
         
         self.apply_canny_button.clicked.connect(self._on_apply_canny)
@@ -1254,8 +1278,10 @@ class MainWindow(QMainWindow):
     def _emit_hough_ellipses_params(self):
             self.hough_ellipses_params_changed.emit(
                 self.dp_ellipse_resolution.value(),
-                self.min_ellipse_radius.value(),
-                self.max_ellipse_radius.value(),
+                self.major_axis_min_val.value(),
+                self.major_axis_max_val.value(),
+                self.minor_axis_min_val.value(),
+                self.minor_axis_max_val.value(),
                 self.threshold_ellipse.value()
             )
 
@@ -1878,7 +1904,83 @@ class MainWindow(QMainWindow):
     
     def _on_detect_ellipses(self):
         self.statusBar().showMessage("Detecting ellipses...")
-        # Add actual implementation here
+        if self.original_image is None:
+            return
+        self.current_image = convert_to_grayscale(self.original_image)
+        self.current_image = cv2.GaussianBlur(self.current_image, (5, 5), 1.5)
+        edges = cv2.Canny(self.current_image, 50, 150)
+
+        # Define accumulator dimensions
+        height, width = self.current_image.shape
+        min_A = self.major_axis_min_val.value()
+        max_A = self.major_axis_max_val.value()
+        min_B = self.minor_axis_min_val.value()
+        max_B = self.minor_axis_max_val.value()
+        angle_step = self.dp_ellipse_resolution.value()
+        minDistance = min_A  # Minimum distance to merge ellipses
+
+        # 5D accumulator (center_x, center_y, major axis A, minor axis B, angle)
+        accumulator = np.zeros((height, width, max_A - min_A + 1, max_B - min_B + 1, len(range(0, 360, int(angle_step)))), dtype=np.int32)
+
+        edge_pixels = np.argwhere(edges > 0)  # Get edge pixels efficiently
+        for y, x in edge_pixels:
+            for A in range(min_A, max_A + 1):
+                for B in range(min_B, max_B + 1):
+                    for theta_index, theta in enumerate(range(0, 360, int(angle_step))): # Rotation angle
+                        rad = np.deg2rad(theta)
+                        a = int(x - A * np.cos(rad))
+                        b = int(y - B * np.sin(rad))
+
+                        if 0 <= a < height and 0 <= b < width:
+                            accumulator[a, b, A - min_A, B - min_B, theta_index] += 1
+
+        # Extract detected ellipses
+        detected_ellipses = []
+        for a in range(height):
+            for b in range(width):
+                for A_index in range(max_A - min_A + 1):
+                    for B_index in range(max_B - min_B + 1):
+                        for theta_index, theta in enumerate(range(0, 360, int(angle_step))):
+                            votes = accumulator[a, b, A_index, B_index, theta_index]
+                            if votes > self.threshold_ellipse.value():
+                                A = A_index + min_A
+                                B = B_index + min_B
+                                detected_ellipses.append((a, b, A, B, theta))
+
+        '''# Merge overlapping ellipses
+        filtered_ellipses = []
+        for new_ellipse in detected_ellipses:
+            x1, y1, A1, B1, theta1 = new_ellipse
+            merged = False
+
+            for i, (x2, y2, A2, B2, theta2) in enumerate(filtered_ellipses):
+                distance = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+
+                if distance < minDistance and abs(A1 - A2) < minDistance and abs(B1 - B2) < minDistance:
+                    # Merge by averaging parameters
+                    merged_x = (x1 + x2) // 2
+                    merged_y = (y1 + y2) // 2
+                    merged_A = (A1 + A2) // 2
+                    merged_B = (B1 + B2) // 2
+                    merged_theta = (theta1 + theta2) // 2
+
+                    filtered_ellipses[i] = (merged_x, merged_y, merged_A, merged_B, merged_theta)
+                    merged = True
+                    break
+
+            if not merged:
+                filtered_ellipses.append(new_ellipse)
+
+        detected_ellipses = filtered_ellipses'''
+
+        # Draw detected ellipses
+        output_image = self.original_image.copy()
+        for x, y, A, B, theta in detected_ellipses:
+            cv2.ellipse(output_image, (x, y), (A, B), theta, 0, 360, (0, 255, 0), 2)
+        
+        self.current_image = output_image
+
+        self.update_image_display()
     
     # Event handlers for active contours
     def _on_initialize_contour(self):
