@@ -33,7 +33,8 @@ class MainWindow(QMainWindow):
     snake_params_changed = pyqtSignal(float, float, float, float, int)
     canny_params_changed = pyqtSignal(int, int, int)
     hough_lines_params_changed = pyqtSignal(float, float, int)
-    hough_circles_params_changed = pyqtSignal(float, int, int, int, int)
+    hough_circles_params_changed = pyqtSignal(float, int, int, int)
+    hough_ellipses_params_changed = pyqtSignal(float, int, int, int)
 
     def __init__(self, support_edge_detection=False, support_active_contours=False):
         super().__init__()
@@ -1012,19 +1013,19 @@ class MainWindow(QMainWindow):
         
         # DP accumulator resolution
         dp_layout = QHBoxLayout()
-        dp_label = QLabel("Accumulator resolution:")
+        dp_label = QLabel("Accumulator resolution (Theta step size):")
         dp_label.setObjectName("paramLabel")
         dp_layout.addWidget(dp_label)
         
         self.dp_resolution = QDoubleSpinBox()
-        self.dp_resolution.setRange(0.5, 5.0)
+        self.dp_resolution.setRange(0.1, 1)
         self.dp_resolution.setSingleStep(0.1)
         self.dp_resolution.setValue(1.0)
         self.dp_resolution.setObjectName("paramSpinBox")
         dp_layout.addWidget(self.dp_resolution)
         hough_circles_layout.addLayout(dp_layout)
         
-        # Min distance between circles
+        '''# Min distance between circles
         min_dist_layout = QHBoxLayout()
         min_dist_label = QLabel("Min distance between centers:")
         min_dist_label.setObjectName("paramLabel")
@@ -1035,7 +1036,7 @@ class MainWindow(QMainWindow):
         self.min_distance.setValue(20)
         self.min_distance.setObjectName("paramSpinBox")
         min_dist_layout.addWidget(self.min_distance)
-        hough_circles_layout.addLayout(min_dist_layout)
+        hough_circles_layout.addLayout(min_dist_layout)'''
         
         # Min and max radius
         radius_layout = QHBoxLayout()
@@ -1044,7 +1045,7 @@ class MainWindow(QMainWindow):
         radius_layout.addWidget(min_radius_label)
         
         self.min_radius = QSpinBox()
-        self.min_radius.setRange(0, 200)
+        self.min_radius.setRange(0, 500)
         self.min_radius.setValue(10)
         self.min_radius.setObjectName("paramSpinBox")
         radius_layout.addWidget(self.min_radius)
@@ -1055,7 +1056,7 @@ class MainWindow(QMainWindow):
         
         self.max_radius = QSpinBox()
         self.max_radius.setRange(0, 500)
-        self.max_radius.setValue(100)
+        self.max_radius.setValue(15)
         self.max_radius.setObjectName("paramSpinBox")
         radius_layout.addWidget(self.max_radius)
         hough_circles_layout.addLayout(radius_layout)
@@ -1068,10 +1069,10 @@ class MainWindow(QMainWindow):
         
         self.threshold_circles = QSlider(Qt.Orientation.Horizontal)
         self.threshold_circles.setRange(10, 300)
-        self.threshold_circles.setValue(80)
+        self.threshold_circles.setValue(100)
         self.threshold_circles.setObjectName("paramSlider")
         
-        self.threshold_circles_label = QLabel("80")
+        self.threshold_circles_label = QLabel("100")
         self.threshold_circles_label.setObjectName("valueLabel")
         self.threshold_circles_label.setMinimumWidth(30)
         self.threshold_circles_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -1087,14 +1088,86 @@ class MainWindow(QMainWindow):
         self.detect_circles_button.setObjectName("actionButton")
         button_layout.addWidget(self.detect_circles_button)
         
-        self.detect_ellipses_button = QPushButton("Detect Ellipses")
-        self.detect_ellipses_button.setObjectName("actionButton")
-        button_layout.addWidget(self.detect_ellipses_button)
-        
         hough_circles_layout.addLayout(button_layout)
         
         hough_circles_group.setLayout(hough_circles_layout)
         hough_layout.addWidget(hough_circles_group)
+
+         # Hough circles parameters - styled frame
+        hough_ellipse_group = QGroupBox("Hough Ellipse Transform Parameters")
+        hough_ellipse_group.setObjectName("paramGroupBox")
+        hough_ellipse_layout = QVBoxLayout()
+        hough_ellipse_layout.setSpacing(10)
+        
+        # DP accumulator resolution
+        dp_ellipse_layout = QHBoxLayout()
+        dp_ellipse_label = QLabel("Accumulator resolution (Theta step size):")
+        dp_ellipse_label.setObjectName("paramLabel")
+        dp_ellipse_layout.addWidget(dp_ellipse_label)
+        
+        self.dp_ellipse_resolution = QDoubleSpinBox()
+        self.dp_ellipse_resolution.setRange(1, 5)
+        self.dp_ellipse_resolution.setSingleStep(0.5)
+        self.dp_ellipse_resolution.setValue(1.0)
+        self.dp_ellipse_resolution.setObjectName("paramSpinBox")
+        dp_ellipse_layout.addWidget(self.dp_ellipse_resolution)
+        hough_ellipse_layout.addLayout(dp_ellipse_layout)
+        
+        # Min and max radius
+        ellipse_radius_layout = QHBoxLayout()
+        min_ellipse_radius_label = QLabel("Min radius:")
+        min_ellipse_radius_label.setObjectName("paramLabel")
+        ellipse_radius_layout.addWidget(min_ellipse_radius_label)
+        
+        self.min_ellipse_radius = QSpinBox()
+        self.min_ellipse_radius.setRange(0, 200)
+        self.min_ellipse_radius.setValue(10)
+        self.min_ellipse_radius.setObjectName("paramSpinBox")
+        ellipse_radius_layout.addWidget(self.min_ellipse_radius)
+        
+        max_ellipse_radius_label = QLabel("Max radius:")
+        max_ellipse_radius_label.setObjectName("paramLabel")
+        ellipse_radius_layout.addWidget(max_ellipse_radius_label)
+        
+        self.max_ellipse_radius = QSpinBox()
+        self.max_ellipse_radius.setRange(0, 500)
+        self.max_ellipse_radius.setValue(15)
+        self.max_ellipse_radius.setObjectName("paramSpinBox")
+        ellipse_radius_layout.addWidget(self.max_ellipse_radius)
+        hough_ellipse_layout.addLayout(ellipse_radius_layout)
+        
+        # Threshold for ellipse detection - styled slider
+        threshold_ellipse_layout = QHBoxLayout()
+        threshold_ellipse_label = QLabel("Threshold:")
+        threshold_ellipse_label.setObjectName("paramLabel")
+        threshold_ellipse_layout.addWidget(threshold_ellipse_label)
+        
+        self.threshold_ellipse = QSlider(Qt.Orientation.Horizontal)
+        self.threshold_ellipse.setRange(10, 300)
+        self.threshold_ellipse.setValue(100)
+        self.threshold_ellipse.setObjectName("paramSlider")
+        
+        self.threshold_ellipse_label = QLabel("100")
+        self.threshold_ellipse_label.setObjectName("valueLabel")
+        self.threshold_ellipse_label.setMinimumWidth(30)
+        self.threshold_ellipse_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        
+        threshold_ellipse_layout.addWidget(self.threshold_ellipse)
+        threshold_ellipse_layout.addWidget(self.threshold_ellipse_label)
+        hough_ellipse_layout.addLayout(threshold_ellipse_layout)
+        
+        # Detection buttons - styled buttons
+        button_layout = QHBoxLayout()
+    
+        
+        self.detect_ellipses_button = QPushButton("Detect Ellipses")
+        self.detect_ellipses_button.setObjectName("actionButton")
+        button_layout.addWidget(self.detect_ellipses_button)
+        
+        hough_ellipse_layout.addLayout(button_layout)
+        
+        hough_ellipse_group.setLayout(hough_ellipse_layout)
+        hough_layout.addWidget(hough_ellipse_group)
 
         # Add a checkbox to toggle OpenCV usage
         self.use_opencv_checkbox = QCheckBox("Use OpenCV")
@@ -1114,6 +1187,7 @@ class MainWindow(QMainWindow):
         self.high_threshold.valueChanged.connect(self._update_high_threshold_label)
         self.threshold_lines.valueChanged.connect(self._update_threshold_lines_label)
         self.threshold_circles.valueChanged.connect(self._update_threshold_circles_label)
+        self.threshold_ellipse.valueChanged.connect(self._update_threshold_ellipses_label)
         
         self.blur_kernel_size.valueChanged.connect(self._emit_canny_params)
         self.low_threshold.valueChanged.connect(self._emit_canny_params)
@@ -1124,10 +1198,14 @@ class MainWindow(QMainWindow):
         self.threshold_lines.valueChanged.connect(self._emit_hough_lines_params)
         
         self.dp_resolution.valueChanged.connect(self._emit_hough_circles_params)
-        self.min_distance.valueChanged.connect(self._emit_hough_circles_params)
         self.min_radius.valueChanged.connect(self._emit_hough_circles_params)
         self.max_radius.valueChanged.connect(self._emit_hough_circles_params)
         self.threshold_circles.valueChanged.connect(self._emit_hough_circles_params)
+
+        self.dp_ellipse_resolution.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.min_ellipse_radius.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.max_ellipse_radius.valueChanged.connect(self._emit_hough_ellipses_params)
+        self.threshold_ellipse.valueChanged.connect(self._emit_hough_ellipses_params)
         
         self.apply_canny_button.clicked.connect(self._on_apply_canny)
         self.detect_lines_button.clicked.connect(self._on_detect_lines)
@@ -1148,6 +1226,9 @@ class MainWindow(QMainWindow):
     def _update_threshold_circles_label(self, value):
         self.threshold_circles_label.setText(str(value))
     
+    def _update_threshold_ellipses_label(self, value):
+        self.threshold_ellipse_label.setText(str(value))
+    
     def _emit_canny_params(self):
         self.canny_params_changed.emit(
             self.blur_kernel_size.value(),
@@ -1165,12 +1246,18 @@ class MainWindow(QMainWindow):
     def _emit_hough_circles_params(self):
         self.hough_circles_params_changed.emit(
             self.dp_resolution.value(),
-            self.min_distance.value(),
             self.min_radius.value(),
             self.max_radius.value(),
             self.threshold_circles.value()
         )
-
+            
+    def _emit_hough_ellipses_params(self):
+            self.hough_ellipses_params_changed.emit(
+                self.dp_ellipse_resolution.value(),
+                self.min_ellipse_radius.value(),
+                self.max_ellipse_radius.value(),
+                self.threshold_ellipse.value()
+            )
 
 
     def on_filter_type_changed(self, button):
@@ -1711,7 +1798,83 @@ class MainWindow(QMainWindow):
     
     def _on_detect_circles(self):
         self.statusBar().showMessage("Detecting circles...")
-        # Add actual implementation here
+        if self.original_image is None:
+            return
+        self.current_image = convert_to_grayscale(self.original_image)
+        self.current_image = cv2.GaussianBlur(self.current_image, (5, 5), 1.5)
+        edges = cv2.Canny(self.current_image, 50, 100)
+    
+        # Define the size of our accumulator matrix
+        height, width = self.current_image.shape
+        minDistance = self.min_radius.value()
+        accumulator = np.zeros((height, width, self.max_radius.value() - self.min_radius.value() + 1), dtype=np.int32)
+
+        if not self.use_opencv_checkbox.isChecked():            
+            # Fill the accumulator matrix with votes
+            edge_pixels = np.argwhere(edges > 0)  # Get edge pixels efficiently
+            for y, x in edge_pixels:
+                for r in range(self.min_radius.value(), self.max_radius.value() + 1):
+                    # To vote for potential centers, we consider all possible directions around the edge
+                    for theta in range(0, 360, max(1, int(1 / self.dp_resolution.value()))):  # Step based on dp
+                        # circle center
+                        a = int(x - r * np.cos(np.deg2rad(theta)))
+                        b = int(y - r * np.sin(np.deg2rad(theta)))
+                        
+                        if 0 <= a < height and 0 <= b < width:
+                            accumulator[a, b, r - self.min_radius.value()] += 1 # r is minus min_radius as index starts from 0
+            
+            # Extract detected circles
+            detected_circles = []            
+            for a in range(height):
+                for b in range(width):
+                    for r_index, votes in enumerate(accumulator[a, b]):
+                        if votes > self.threshold_circles.value():
+                            r = r_index + self.min_radius.value()
+                            detected_circles.append((a, b, r))
+            
+            # Min Distance Check (If circles are closer than the minimum distance allowed, we merge them together to be 1 circle)
+            filtered_circles = []
+
+            for new_circle in detected_circles:
+                x1, y1, r1 = new_circle
+                merged = False
+
+                for i, (x2, y2, r2) in enumerate(filtered_circles):
+                    distance = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+                    
+                    if distance < minDistance:
+                        # Merge by averaging centers & radii
+                        merged_x = (x1 + x2) // 2
+                        merged_y = (y1 + y2) // 2
+                        merged_r = (r1 + r2) // 2
+
+                        filtered_circles[i] = (merged_x, merged_y, merged_r)
+                        merged = True
+                        break  # Stop checking more circles once merged
+
+                if not merged:
+                    filtered_circles.append(new_circle)
+
+            detected_circles = filtered_circles
+        else:
+            # Apply OpenCV's Hough Circle Transform
+            circles = cv2.HoughCircles(self.current_image, cv2.HOUGH_GRADIENT, dp=self.dp_resolution.value(), minDist=minDistance, param1=100,
+                                       param2=self.threshold_circles.value(), minRadius=self.min_radius.value(), maxRadius=self.max_radius.value())
+            detected_circles = []
+            if circles is not None:
+                circles = np.uint16(np.around(circles))  # Round values for drawing
+                for circle in circles[0, :]:
+                    a, b, r = circle  # Extract center (a, b) and radius (r)
+                    detected_circles.append((a, b, r))
+                
+        # Superimpose the lines
+        output_image = self.original_image.copy()
+        for x, y, r in detected_circles:
+                cv2.circle(output_image, (x, y), r, (0, 255, 0), 2)  # Draw outer circle
+                
+        self.current_image = output_image
+
+        self.update_image_display()
     
     def _on_detect_ellipses(self):
         self.statusBar().showMessage("Detecting ellipses...")
