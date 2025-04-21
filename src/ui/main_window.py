@@ -2225,7 +2225,7 @@ class MainWindow(QMainWindow):
     
     def extractSift(self):
         keypoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
-        """for (x, y, scale_idx, octave_idx) in keypoints:
+        """for (x, y, octave_idx) in keypoints:
                 # If using octaves and resized images, rescale keypoints back:
                 scale_factor = 2 ** octave_idx
                 real_x = int(x * scale_factor)

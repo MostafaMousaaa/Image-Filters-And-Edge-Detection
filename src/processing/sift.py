@@ -42,6 +42,8 @@ def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edge
             
             height = currScale.shape[0]
             width = currScale.shape[1]
+
+            sigmaOrientation = sigma * (math.sqrt(2) ** (octaveIdx + (scaleIdx + 0.5) / float(octaveLayersNum)))
             
             for y in range(1, height - 1):
                 for x in range(1, width - 1):
@@ -71,7 +73,7 @@ def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edge
                                 thresholdRatio = ((edgeThreshold + 1) ** 2) / edgeThreshold
 
                                 if curvatureRatio <= thresholdRatio:
-                                    keypoints.append((x, y, scaleIdx, octaveIdx))
+                                    keypoints.append((x, y, sigmaOrientation, octaveIdx))
         octaveIdx += 1
     
     return keypoints
