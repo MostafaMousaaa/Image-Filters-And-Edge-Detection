@@ -25,6 +25,7 @@ from ..processing.thresholding import global_threshold, local_threshold
 from ..processing.frequency_domain import gaussian_low_pass_filter
 from ..processing.frequency_domain import butterworth_high_pass_filter
 from ..processing.hybrid_images import create_hybrid_image
+from ..processing.sift import generateSiftDescriptors
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
 from src.ui.active_contour_panel import ActiveContourPanel
@@ -294,6 +295,8 @@ class MainWindow(QMainWindow):
         self.setup_contour()
 
         self.setup_edge_detection()
+
+        self.setup_sift_tab()
         
         # Set tab icons if available
         try:
@@ -1241,6 +1244,56 @@ class MainWindow(QMainWindow):
 
         self.sidebar.addTab(edge_detection_widget, "Edge Detection")
     
+    def setup_sift_tab(self):
+        sift_widget = QWidget()
+        sift_layout = QVBoxLayout(sift_widget)
+
+        # Octave Layers
+        octave_layers_label = QLabel("Number of Octave Layers (Different Image Resolutions):")
+        self.octave_layers_spinbox = QSpinBox()
+        self.octave_layers_spinbox.setRange(1, 10)
+        self.octave_layers_spinbox.setValue(3)
+        sift_layout.addWidget(octave_layers_label)
+        sift_layout.addWidget(self.octave_layers_spinbox)
+
+        # Keypoint Threshold (Contrast Threshold)
+        threshold_label = QLabel("Keypoint Contrast Threshold:")
+        self.threshold_spinbox = QDoubleSpinBox()
+        self.threshold_spinbox.setDecimals(2)
+        self.threshold_spinbox.setRange(0, 1.0)
+        self.threshold_spinbox.setSingleStep(0.01)
+        self.threshold_spinbox.setValue(0.04)
+        sift_layout.addWidget(threshold_label)
+        sift_layout.addWidget(self.threshold_spinbox)
+
+        # Edge Threshold
+        edge_threshold_label = QLabel("Edge Threshold:")
+        self.edge_threshold_spinbox = QSpinBox()
+        self.edge_threshold_spinbox.setRange(1, 100)
+        self.edge_threshold_spinbox.setValue(10)
+        sift_layout.addWidget(edge_threshold_label)
+        sift_layout.addWidget(self.edge_threshold_spinbox)
+
+        # Sigma
+        sigma_label = QLabel("Sigma:")
+        self.sigma_spinbox = QDoubleSpinBox()
+        self.sigma_spinbox.setDecimals(1)
+        self.sigma_spinbox.setRange(0.5, 5.0)
+        self.sigma_spinbox.setSingleStep(0.1)
+        self.sigma_spinbox.setValue(1.6)
+        sift_layout.addWidget(sigma_label)
+        sift_layout.addWidget(self.sigma_spinbox)
+
+        # Button to Print Values
+        submit_button = QPushButton("Extract SIFT Features")
+        submit_button.clicked.connect(self.extractSift)
+        sift_layout.addWidget(submit_button)
+        
+        # Add stretch to push everything up
+        sift_layout.addStretch()
+        
+        self.sidebar.addTab(sift_widget, "SIFT")
+    
     def _update_low_threshold_label(self, value):
         self.low_threshold_label.setText(str(value))
     
@@ -1338,7 +1391,7 @@ class MainWindow(QMainWindow):
 
 
         # Add to sidebar
-        self.sidebar.addTab(container, "Hybrid Image.")
+        self.sidebar.addTab(container, "Hybrid Image")
 
         
     def update_dual_alpha_display(self, value):
@@ -2169,6 +2222,17 @@ class MainWindow(QMainWindow):
             # Hide chain code dock
             self.chain_code_dock.hide()
             self.statusBar().showMessage("Hiding chain code")
+    
+    def extractSift(self):
+        keypoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
+        """for (x, y, octave_idx) in keypoints:
+                # If using octaves and resized images, rescale keypoints back:
+                scale_factor = 2 ** octave_idx
+                real_x = int(x * scale_factor)
+                real_y = int(y * scale_factor)
+
+                cv2.circle(self.current_image, (real_x, real_y), 2, (0, 255, 0), thickness=1)"""
+        self.update_image_display()
    
 def main():
     app = QApplication(sys.argv)
