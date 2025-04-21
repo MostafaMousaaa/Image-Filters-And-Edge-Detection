@@ -25,6 +25,7 @@ from ..processing.thresholding import global_threshold, local_threshold
 from ..processing.frequency_domain import gaussian_low_pass_filter
 from ..processing.frequency_domain import butterworth_high_pass_filter
 from ..processing.hybrid_images import create_hybrid_image
+from ..processing.sift import generateSiftDescriptors
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
 from src.ui.active_contour_panel import ActiveContourPanel
@@ -1265,6 +1266,14 @@ class MainWindow(QMainWindow):
         sift_layout.addWidget(threshold_label)
         sift_layout.addWidget(self.threshold_spinbox)
 
+        # Edge Threshold
+        edge_threshold_label = QLabel("Edge Threshold:")
+        self.edge_threshold_spinbox = QSpinBox()
+        self.edge_threshold_spinbox.setRange(1, 100)
+        self.edge_threshold_spinbox.setValue(10)
+        sift_layout.addWidget(edge_threshold_label)
+        sift_layout.addWidget(self.edge_threshold_spinbox)
+
         # Sigma
         sigma_label = QLabel("Sigma:")
         self.sigma_spinbox = QDoubleSpinBox()
@@ -1277,7 +1286,7 @@ class MainWindow(QMainWindow):
 
         # Button to Print Values
         submit_button = QPushButton("Extract SIFT Features")
-        submit_button.clicked.connect(self.extractSIFT)
+        submit_button.clicked.connect(self.extractSift)
         sift_layout.addWidget(submit_button)
         
         # Add stretch to push everything up
@@ -2214,8 +2223,10 @@ class MainWindow(QMainWindow):
             self.chain_code_dock.hide()
             self.statusBar().showMessage("Hiding chain code")
     
-    def extractSIFT(self):
-        pass
+    def extractSift(self):
+        keyPoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_thresholds_spinbox.value())
+
+        self.update_image_display()
    
 def main():
     app = QApplication(sys.argv)
