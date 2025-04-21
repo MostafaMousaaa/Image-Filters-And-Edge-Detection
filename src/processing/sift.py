@@ -1,10 +1,11 @@
-import cv2
 import math
+import cv2
+import numpy as np
 from filters import gaussian_filter_custom
 
 def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edgeThreshold):
     if img is None:
-        return None
+        return []
     
     # Scale Space Construction
     k = math.sqrt(2)
@@ -30,4 +31,41 @@ def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edge
         diffOfGaussians.append(currOctaveDOG)
     
     # Scale Space Extrema Detection
-    
+    keypoints = []
+    for DOG in diffOfGaussians: # Loops through octaves
+        octaveIdx = 0
+        for scaleIdx in range(1, len(DOG) - 1): # Loop through all difference of gaussians in the same octave
+            lowerScale = DOG[scaleIdx - 1]
+            currScale = DOG[scaleIdx]
+            higherScale = DOG[scaleIdx + 1]
+            
+            height, width = currScale.shape
+            
+            for y in range(1, height - 1):
+                for x in range(1, width - 1):
+                    pixelValue = currScale[y, x]
+                    # Calculating 3 * 3 neighborhood for all 3 scales (26 neighbors at most for current pixel we are checking)
+                    neighborhood = np.array([lowerScale[y - 1 : y + 2, x - 1 : x + 2], currScale[y - 1 : y + 2, x - 1 : x + 2], higherScale[y - 1 : y + 2, x - 1 : x + 2]])
+
+                    if (pixelValue == np.max(neighborhood) or pixelValue == np.min(neighborhood)):
+                        if abs(pixelValue) >= keypointThreshold: # First threshold which is contrast threshold (ignores low contrast keypoints that are suspect to noise)
+
+                            # Edges are strong in one direction, while Corners (and blobs) are strong and stable in all directions, making them useful as SIFT keypoints
+                            # Edge threshold is done by calculating hessian matrix (uses second derivatives which calculate curvature (change of gradient))
+
+                            Dxx = currScale[y, x + 1] + currScale[y, x - 1] - 2 * pixelValue # second derivative in x direction(how much image changes horizontally)
+                            Dyy = currScale[y + 1, x] + currScale[y - 1, x] - 2 * pixelValue # second derivative in y direction(how much image changes vertically)
+                            # How much image changes diagonally
+                            Dxy = ((currScale[y + 1, x + 1] - currScale[y + 1, x - 1]) - (currScale[y - 1, x + 1] - currScale[y - 1, x - 1])) / 4.0
+
+                            trace = Dxx + Dyy # sum of diagonals of hessian matrix represents total curvature strength (summation of eigenvalues)
+                            determinant = Dxx * Dyy - Dxy * Dxy # represents curvature strength in both directions (large positive means good corner) (product of eigenvalues)
+
+                            if determinant > 0: # candidate for valid key point
+                                curvatureRatio = (trace ** 2) / determinant # if ratio is small, then eigenvalues are both similar, therefore good corner
+                                thresholdRatio = ((edgeThreshold + 1) ** 2) / edgeThreshold
+
+                                if curvatureRatio <= thresholdRatio:
+                                    keypoints.append((x, y, octaveIdx, scaleIdx))
+        octaveIdx += 1
+    return keypoints
