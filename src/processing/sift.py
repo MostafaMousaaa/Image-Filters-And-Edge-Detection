@@ -1,12 +1,12 @@
 import math
 import cv2
 import numpy as np
-from filters import gaussian_filter_custom
+from .filters import gaussian_filter_custom
 
 def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edgeThreshold):
     if img is None:
         return []
-    
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # Scale Space Construction
     k = math.sqrt(2)
     scaleLevels = [sigma, sigma * k, sigma * 2, sigma * 2 * k, sigma * 2 * k * k]
@@ -14,7 +14,8 @@ def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edge
 
     for _ in range(octaveLayersNum - 1):
         prevImage = octaveLevels[-1]
-        height, width = prevImage.shape
+        height = prevImage.shape[0]
+        width = prevImage.shape[1]
         octaveLevels.append(cv2.resize(prevImage, (height // 2, width // 2))) # Saving different image octaves by downscaling the image by half
     
     diffOfGaussians = [] # List of lists, where each list contains multiple 2D matrices representing difference of gaussians whose sigma is different
@@ -32,22 +33,26 @@ def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edge
     
     # Scale Space Extrema Detection
     keypoints = []
+    octaveIdx = 0
     for DOG in diffOfGaussians: # Loops through octaves
-        octaveIdx = 0
         for scaleIdx in range(1, len(DOG) - 1): # Loop through all difference of gaussians in the same octave
             lowerScale = DOG[scaleIdx - 1]
             currScale = DOG[scaleIdx]
             higherScale = DOG[scaleIdx + 1]
             
-            height, width = currScale.shape
+            height = currScale.shape[0]
+            width = currScale.shape[1]
             
             for y in range(1, height - 1):
                 for x in range(1, width - 1):
                     pixelValue = currScale[y, x]
-                    # Calculating 3 * 3 neighborhood for all 3 scales (26 neighbors at most for current pixel we are checking)
-                    neighborhood = np.array([lowerScale[y - 1 : y + 2, x - 1 : x + 2], currScale[y - 1 : y + 2, x - 1 : x + 2], higherScale[y - 1 : y + 2, x - 1 : x + 2]])
 
-                    if (pixelValue == np.max(neighborhood) or pixelValue == np.min(neighborhood)):
+                    # Calculating 3 * 3 neighborhood for all 3 scales (26 neighbors at most for current pixel we are checking) (result is 1D array of 27 Elements)
+                    neighborhood = np.concatenate([lowerScale[y - 1 : y + 2, x - 1 : x + 2].flatten(),
+                                                   currScale[y - 1 : y + 2, x - 1 : x + 2].flatten(),
+                                                   higherScale[y - 1 : y + 2, x - 1 : x + 2].flatten()])
+
+                    if (pixelValue == np.max(neighborhood)) or (pixelValue == np.min(neighborhood)):
                         if abs(pixelValue) >= keypointThreshold: # First threshold which is contrast threshold (ignores low contrast keypoints that are suspect to noise)
 
                             # Edges are strong in one direction, while Corners (and blobs) are strong and stable in all directions, making them useful as SIFT keypoints
@@ -66,6 +71,7 @@ def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edge
                                 thresholdRatio = ((edgeThreshold + 1) ** 2) / edgeThreshold
 
                                 if curvatureRatio <= thresholdRatio:
-                                    keypoints.append((x, y, octaveIdx, scaleIdx))
+                                    keypoints.append((x, y, scaleIdx, octaveIdx))
         octaveIdx += 1
+    
     return keypoints

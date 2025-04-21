@@ -2224,8 +2224,14 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("Hiding chain code")
     
     def extractSift(self):
-        keyPoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_thresholds_spinbox.value())
+        keypoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
+        """for (x, y, scale_idx, octave_idx) in keypoints:
+                # If using octaves and resized images, rescale keypoints back:
+                scale_factor = 2 ** octave_idx
+                real_x = int(x * scale_factor)
+                real_y = int(y * scale_factor)
 
+                cv2.circle(self.current_image, (real_x, real_y), 2, (0, 255, 0), thickness=1)"""
         self.update_image_display()
    
 def main():
