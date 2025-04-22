@@ -25,7 +25,7 @@ from ..processing.thresholding import global_threshold, local_threshold
 from ..processing.frequency_domain import gaussian_low_pass_filter
 from ..processing.frequency_domain import butterworth_high_pass_filter
 from ..processing.hybrid_images import create_hybrid_image
-from ..processing.sift import generateSiftDescriptors
+from ..processing.sift import generateSiftDescriptors, extract_sift_descriptors
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
 from src.ui.active_contour_panel import ActiveContourPanel
@@ -2224,14 +2224,30 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("Hiding chain code")
     
     def extractSift(self):
+        
+        # Draw final keypoints on the image
+        
         keypoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
-        """for (x, y, octave_idx) in keypoints:
-                # If using octaves and resized images, rescale keypoints back:
-                scale_factor = 2 ** octave_idx
-                real_x = int(x * scale_factor)
-                real_y = int(y * scale_factor)
-
-                cv2.circle(self.current_image, (real_x, real_y), 2, (0, 255, 0), thickness=1)"""
+        for (x, y, sigma, octave_idx) in keypoints:
+            # If using octaves and resized images, rescale keypoints back:
+            scale_factor = 2 ** octave_idx
+            real_x = int(x * scale_factor)
+            real_y = int(y * scale_factor)
+            cv2.circle(self.current_image, (real_x, real_y), 2, (0, 255, 0), thickness=1)
+        
+        descriptors = extract_sift_descriptors(self.original_image, keypoints)
+        print(f"first descriptor: {descriptors[0]}")
+        
+        # sift = cv2.SIFT_create()
+        # keypoints, descriptors = sift.detectAndCompute(self.original_image, None)
+        # print(f"first descriptor{descriptors[0]}")
+        
+        # self.current_image = cv2.drawKeypoints(
+        #     self.current_image, 
+        #     keypoints, 
+        #     None, 
+        #     flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS
+        # )
         self.update_image_display()
    
 def main():

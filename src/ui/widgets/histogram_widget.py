@@ -80,7 +80,8 @@ class HistogramWidget(QWidget):
         else:
             self.update_grayscale_histogram()
             
-        self.update_distribution_function()
+        # self.update_distribution_function()
+        pass
     
     def update_grayscale_histogram(self):
         if self.image_data is None:
