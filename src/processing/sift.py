@@ -9,7 +9,9 @@ def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edge
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
     # Scale Space Construction
     k = math.sqrt(2)
-    scaleLevels = [sigma, sigma * k, sigma * 2, sigma * 2 * k, sigma * 2 * k * k]
+    scaleLevels = []
+    for i in range(octaveLayersNum + 3):
+        scaleLevels.append(sigma * (k ** i))
     octaveLevels = [img]
 
     for _ in range(octaveLayersNum - 1):
