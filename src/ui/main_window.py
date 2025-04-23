@@ -2240,6 +2240,10 @@ class MainWindow(QMainWindow):
         
         # sift = cv2.SIFT_create()
         # keypoints, descriptors = sift.detectAndCompute(self.original_image, None)
+        
+        # descriptors[0] = descriptors[0] / (np.linalg.norm(descriptors[0]) + 1e-6)
+        # descriptors[0] = np.clip(descriptors[0], 0, 0.2)  # Clip large values
+        # descriptors[0] = descriptors[0] / max(np.linalg.norm(descriptors[0]), 1e-6)  # Renormalize
         # print(f"first descriptor{descriptors[0]}")
         
         # self.current_image = cv2.drawKeypoints(

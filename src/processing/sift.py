@@ -185,7 +185,7 @@ def get_sift_descriptor(grad_mag, grad_dir, kpt, orientation):
     return desc
 
 def extract_sift_descriptors(image, keypoints):
-    
+    oriented_keypoints = []
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     image = image.astype(np.float32)
@@ -206,7 +206,8 @@ def extract_sift_descriptors(image, keypoints):
         
         # Create descriptor for each orientation for the feature (if there are many dominant orientations)
         for orientation in orientations:
+            oriented_keypoints.append(cv2.KeyPoint(x, y, 10, orientation))
             desc = get_sift_descriptor(grad_mag, grad_dir, kpt, orientation)
             descriptors.append(desc)
     
-    return np.array(descriptors)
+    return np.array(descriptors), np.array(oriented_keypoints)
