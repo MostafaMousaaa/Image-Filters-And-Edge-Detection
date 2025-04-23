@@ -6,7 +6,7 @@ from .filters import gaussian_filter_custom
 def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edgeThreshold):
     if img is None:
         return []
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
     # Scale Space Construction
     k = math.sqrt(2)
     scaleLevels = [sigma, sigma * k, sigma * 2, sigma * 2 * k, sigma * 2 * k * k]
@@ -16,7 +16,11 @@ def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edge
         prevImage = octaveLevels[-1]
         height = prevImage.shape[0]
         width = prevImage.shape[1]
-        octaveLevels.append(cv2.resize(prevImage, (height // 2, width // 2))) # Saving different image octaves by downscaling the image by half
+
+        kernelSize = 2 * math.ceil(3 * scaleLevels[-1]) + 1
+        blurred = cv2.GaussianBlur(prevImage, ksize=(kernelSize, kernelSize), sigmaX=scaleLevels[-1], sigmaY=scaleLevels[-1])
+        #blurred = gaussian_filter_custom(image=prevImage, size=kernelSize, sigma=scaleLevels[-1]))
+        octaveLevels.append(cv2.resize(blurred, (width // 2, height // 2))) # Saving different image octaves by downscaling the image by half
     
     diffOfGaussians = [] # List of lists, where each list contains multiple 2D matrices representing difference of gaussians whose sigma is different
     for octaveImage in octaveLevels:
