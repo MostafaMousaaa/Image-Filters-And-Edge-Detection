@@ -79,6 +79,8 @@ class DualImageView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setup_ui()
+        self.image1 = None
+        self.image2 = None
         
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -87,11 +89,11 @@ class DualImageView(QWidget):
         self.image_splitter = QSplitter(Qt.Orientation.Horizontal)
         
         # First image area
-        self.first_image_panel = ImagePanel("First Image (Low Pass Filtered)")
+        self.first_image_panel = ImagePanel("First Image")
         self.first_image_panel.load_button.clicked.connect(self.load_first_image_clicked)
         
         # Second image area
-        self.second_image_panel = ImagePanel("Second Image (High Pass Filtered)")
+        self.second_image_panel = ImagePanel("Second Image")
         self.second_image_panel.load_button.clicked.connect(self.load_second_image_clicked)
         
         # Add panels to splitter
@@ -145,8 +147,8 @@ class DualImageView(QWidget):
         """)
         
         # Add controls to layout
-        controls_layout.addLayout(alpha_layout)
-        controls_layout.addWidget(self.create_hybrid_button)
+        #controls_layout.addLayout(alpha_layout)
+        #controls_layout.addWidget(self.create_hybrid_button)
         
         # Add controls layout to main layout
         main_layout.addLayout(controls_layout)
@@ -157,10 +159,12 @@ class DualImageView(QWidget):
     def set_first_image(self, cv_image):
         """Set the first image from OpenCV image format"""
         self.first_image_panel.set_image(cv_image)
+        self.image1 = cv_image
     
     def set_second_image(self, cv_image):
         """Set the second image from OpenCV image format"""
         self.second_image_panel.set_image(cv_image)
+        self.image2 = cv_image
     
     def load_first_image_clicked(self):
         self.image1_loaded.emit("load_first")

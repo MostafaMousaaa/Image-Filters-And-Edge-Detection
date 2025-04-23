@@ -1284,10 +1284,32 @@ class MainWindow(QMainWindow):
         sift_layout.addWidget(sigma_label)
         sift_layout.addWidget(self.sigma_spinbox)
 
+        self.dual_image_view = DualImageView()
+        sift_layout.addWidget(self.dual_image_view)
+        # Connect signals
+        self.dual_image_view.image1_loaded.connect(lambda: self.open_image_for_dual_view(1))
+        self.dual_image_view.image2_loaded.connect(lambda: self.open_image_for_dual_view(2))
+        self.original_first_image = None
+        self.original_second_image = None
+
+
+        buttonLayout = QHBoxLayout(sift_widget)
         # Button to Print Values
-        submit_button = QPushButton("Extract SIFT Features")
-        submit_button.clicked.connect(self.extractSift)
-        sift_layout.addWidget(submit_button)
+        submit_button_1 = QPushButton("Extract SIFT Features From Image 1")
+        submit_button_1.clicked.connect(self.extractSift1)
+        buttonLayout.addWidget(submit_button_1)
+
+        # Button to Print Values
+        submit_button_2 = QPushButton("Extract SIFT Features From Image 2")
+        submit_button_2.clicked.connect(self.extractSift2)
+        buttonLayout.addWidget(submit_button_2)
+
+        sift_layout.addLayout(buttonLayout)
+
+        # Button to Print Values
+        submit_button_match = QPushButton("Match The Images")
+        submit_button_match.clicked.connect(self.matchImages)
+        sift_layout.addWidget(submit_button_match)
         
         # Add stretch to push everything up
         sift_layout.addStretch()
@@ -1379,7 +1401,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(container)
         layout.addWidget(instruction_label)
         layout.addWidget(self.dual_image_view)
-        
+
         # Connect signals
         self.dual_image_view.image1_loaded.connect(lambda: self.open_image_for_dual_view(1))
         self.dual_image_view.image2_loaded.connect(lambda: self.open_image_for_dual_view(2))
@@ -1659,10 +1681,12 @@ class MainWindow(QMainWindow):
                 
                 # Set the image in the dual view
                 if image_number == 1:
+                    self.original_first_image = None
                     self.first_image = image
                     self.dual_image_view.set_first_image(image)
                     self.show_status_message(f"Loaded first image: {file_name}", 3000)
                 else:
+                    self.original_second_image = None
                     self.second_image = image
                     self.dual_image_view.set_second_image(image)
                     self.show_status_message(f"Loaded second image: {file_name}", 3000)
@@ -2223,18 +2247,46 @@ class MainWindow(QMainWindow):
             self.chain_code_dock.hide()
             self.statusBar().showMessage("Hiding chain code")
     
-    def extractSift(self):
+    def extractSift1(self):
         # By hand implementation
-        keypoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
-        descriptors, oriented_keypoints = extract_sift_descriptors(self.original_image, keypoints)
-        # print(f"first descriptor: {descriptors[0]}")
-        self.current_image = self.original_image.copy()
+        if self.dual_image_view.image1 is None:
+            return None
+        if self.original_first_image is None:
+            self.original_first_image = self.dual_image_view.image1
+        image1 = self.original_first_image
+        keypoints = generateSiftDescriptors(image1.copy(), self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
+        descriptors, oriented_keypoints = extract_sift_descriptors(image1.copy(), keypoints)
         
         # CV2 Implementation (for testing)
         # sift = cv2.SIFT_create()
-        # oriented_keypoints, descriptors = sift.detectAndCompute(self.original_image, None)        
-        self.current_image = cv2.drawKeypoints(self.current_image, oriented_keypoints, None, color=(0,255,0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-        self.update_image_display()
+        # oriented_keypoints, descriptors = sift.detectAndCompute(image1.copy(), None)        
+        image1 = cv2.drawKeypoints(image1, oriented_keypoints, None, color=(0,255,0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        self.dual_image_view.set_first_image(image1)
+        return (descriptors, oriented_keypoints)
+    
+    def extractSift2(self):
+        # By hand implementation
+        if self.dual_image_view.image2 is None:
+            return None
+        if self.original_second_image is None:
+            self.original_second_image = self.dual_image_view.image2
+        image2 = self.original_second_image
+        keypoints = generateSiftDescriptors(image2.copy(), self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
+        descriptors, oriented_keypoints = extract_sift_descriptors(image2.copy(), keypoints)
+        
+        # CV2 Implementation (for testing)
+        # sift = cv2.SIFT_create()
+        # oriented_keypoints, descriptors = sift.detectAndCompute(image2.copy(), None)        
+        image2 = cv2.drawKeypoints(image2, oriented_keypoints, None, color=(0,255,0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        self.dual_image_view.set_second_image(image2)
+        return (descriptors, oriented_keypoints)
+    
+    def matchImages(self):
+        if self.dual_image_view.image1 is None or self.dual_image_view.image2 is None:
+            return
+        
+        first_descriptors, first_keypoints = self.extractSift1()
+        second_descriptors, second_keypoints = self.extractSift2()
    
 def main():
     app = QApplication(sys.argv)
