@@ -1260,9 +1260,9 @@ class MainWindow(QMainWindow):
         threshold_label = QLabel("Keypoint Contrast Threshold:")
         self.threshold_spinbox = QDoubleSpinBox()
         self.threshold_spinbox.setDecimals(2)
-        self.threshold_spinbox.setRange(0, 1.0)
+        self.threshold_spinbox.setRange(0, 10)
         self.threshold_spinbox.setSingleStep(0.01)
-        self.threshold_spinbox.setValue(0.04)
+        self.threshold_spinbox.setValue(2)
         sift_layout.addWidget(threshold_label)
         sift_layout.addWidget(self.threshold_spinbox)
 
@@ -2224,34 +2224,23 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("Hiding chain code")
     
     def extractSift(self):
+        # By hand implementation
+        # keypoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
+        # descriptors, oriented_keypoints = extract_sift_descriptors(self.original_image, keypoints)
+        # print(f"first descriptor: {descriptors[0]}")
+        self.current_image = self.original_image.copy()
+        # Convert extracted keypoints to cv2 keypoints objects for visualization
+        # cv2_keypoints = []
+        # for kp in keypoints:
+        #     x, y, sigmaOrientation, octaveIdx = kp
+        #     # Size can be related to scale, angle -1 means no angle assigned yet, response is related to strength of keypoint
+        #     keypoint = cv2.KeyPoint(x=float(x), y=float(y), size=10.0, angle=-1, response=0, octave=octaveIdx, class_id=-1)
+        #     cv2_keypoints.append(keypoint)
         
-        # Draw final keypoints on the image
-        
-        keypoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
-        for (x, y, sigma, octave_idx) in keypoints:
-            # If using octaves and resized images, rescale keypoints back:
-            scale_factor = 2 ** octave_idx
-            real_x = int(x * scale_factor)
-            real_y = int(y * scale_factor)
-            cv2.circle(self.current_image, (real_x, real_y), 2, (0, 255, 0), thickness=1)
-        
-        descriptors = extract_sift_descriptors(self.original_image, keypoints)
-        print(f"first descriptor: {descriptors[0]}")
-        
-        # sift = cv2.SIFT_create()
-        # keypoints, descriptors = sift.detectAndCompute(self.original_image, None)
-        
-        # descriptors[0] = descriptors[0] / (np.linalg.norm(descriptors[0]) + 1e-6)
-        # descriptors[0] = np.clip(descriptors[0], 0, 0.2)  # Clip large values
-        # descriptors[0] = descriptors[0] / max(np.linalg.norm(descriptors[0]), 1e-6)  # Renormalize
-        # print(f"first descriptor{descriptors[0]}")
-        
-        # self.current_image = cv2.drawKeypoints(
-        #     self.current_image, 
-        #     keypoints, 
-        #     None, 
-        #     flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS
-        # )
+        #CV2 Implementation (for testing)
+        sift = cv2.SIFT_create()
+        oriented_keypoints, descriptors = sift.detectAndCompute(self.original_image, None)        
+        self.current_image = cv2.drawKeypoints(self.current_image, oriented_keypoints, None, color=(0,255,0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         self.update_image_display()
    
 def main():
