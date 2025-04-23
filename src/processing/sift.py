@@ -2,7 +2,18 @@ import math
 import cv2
 import numpy as np
 from .filters import gaussian_filter_custom
-
+'''
+For given set of images (grayscale and color)
+A) Tasks to implement
+• Extract the unique features in all images using Harris
+operator and λ-. Report computation times to generate these
+points.
+• Generate feature descriptors using scale invariant features
+(SIFT). Report computation time.
+• Match the image set features using sum of squared
+differences (SSD) and normalized cross correlations. Report
+matching computation time.
+'''
 def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edgeThreshold):
     if img is None:
         return []
@@ -216,3 +227,177 @@ def extract_sift_descriptors(image, keypoints):
             descriptors.append(desc)
     
     return np.array(descriptors), np.array(oriented_keypoints)
+
+def match_descriptors_ssd(descriptors1, descriptors2, threshold=None):
+    """
+    Match descriptors using Sum of Squared Differences (SSD).
+    Lower values indicate better matches.
+    
+    Args:
+        descriptors1: Descriptors from the first image
+        descriptors2: Descriptors from the second image
+        threshold: Optional threshold for filtering matches
+        
+    Returns:
+        List of matches (indices of matched descriptors)
+    """
+    matches = []
+    
+    # For each descriptor in the first image
+    for i, desc1 in enumerate(descriptors1):
+        best_match_idx = -1
+        min_distance = float('inf')
+        
+        # Find the closest descriptor in the second image
+        for j, desc2 in enumerate(descriptors2):
+            # Calculate SSD (sum of squared differences)
+            distance = np.sum((desc1 - desc2) ** 2)
+            
+            if distance < min_distance:
+                min_distance = distance
+                best_match_idx = j
+        
+        # Apply threshold if provided
+        if threshold is None or min_distance < threshold:
+            matches.append((i, best_match_idx, min_distance))
+    
+    return matches
+
+def match_descriptors_ncc(descriptors1, descriptors2, threshold=None):
+    """
+    Match descriptors using Normalized Cross Correlation (NCC).
+    Higher values indicate better matches (closer to 1).
+    
+    Args:
+        descriptors1: Descriptors from the first image
+        descriptors2: Descriptors from the second image
+        threshold: Optional threshold for filtering matches
+        
+    Returns:
+        List of matches (indices of matched descriptors)
+    """
+    matches = []
+    
+    # For each descriptor in the first image
+    for i, desc1 in enumerate(descriptors1):
+        best_match_idx = -1
+        max_correlation = -1
+        
+        # Find the closest descriptor in the second image
+        for j, desc2 in enumerate(descriptors2):
+            # Calculate normalized cross correlation
+            # Formula: (A·B) / (||A|| * ||B||)
+            dot_product = np.sum(desc1 * desc2)
+            norm_product = np.linalg.norm(desc1) * np.linalg.norm(desc2)
+            
+            # Avoid division by zero
+            if norm_product > 0:
+                correlation = dot_product / norm_product
+            else:
+                correlation = 0
+                
+            if correlation > max_correlation:
+                max_correlation = correlation
+                best_match_idx = j
+        
+        # Apply threshold if provided (for NCC, we want values above threshold)
+        if threshold is None or max_correlation > threshold:
+            matches.append((i, best_match_idx, max_correlation))
+    
+    return matches
+
+def filter_and_sort_matches(matches, max_matches=50):
+    """
+    Filter and sort matches for visualization.
+    
+    Args:
+        matches: List of matches (i, j, score).
+        max_matches: Maximum number of matches to return.
+        
+    Returns:
+        Filtered and sorted matches.
+    """
+    # Sort matches based on the score (ascending for SSD, descending for NCC)
+    matches = sorted(matches, key=lambda x: x[2], reverse=False)  # Adjust reverse for NCC if needed
+    return matches[:max_matches]
+
+def match_descriptors(descriptors1, descriptors2, method='ssd', threshold=None):
+    """
+    Match descriptors using the specified method.
+    
+    Args:
+        descriptors1: Descriptors from the first image
+        descriptors2: Descriptors from the second image
+        method: 'ssd' for Sum of Squared Differences or 'ncc' for Normalized Cross Correlation
+        threshold: Optional threshold for filtering matches
+        
+    Returns:
+        List of matches with their scores
+    """
+    start_time = cv2.getTickCount()
+    
+    if method.lower() == 'ssd':
+        matches = match_descriptors_ssd(descriptors1, descriptors2, threshold)
+    elif method.lower() == 'ncc':
+        matches = match_descriptors_ncc(descriptors1, descriptors2, threshold)
+    else:
+        raise ValueError(f"Unknown matching method: {method}. Use 'ssd' or 'ncc'.")
+    
+    matches = filter_and_sort_matches(matches)
+    
+    end_time = cv2.getTickCount()
+    matching_time = (end_time - start_time) / cv2.getTickFrequency()
+    
+    print(f"Matching computation time ({method}): {matching_time:.4f} seconds")
+    return matches
+
+def draw_matches(img1, keypoints1, img2, keypoints2, matches, max_matches=50):
+    """
+    Draw matches between two images.
+    
+    Args:
+        img1: First image
+        keypoints1: Keypoints from the first image
+        img2: Second image
+        keypoints2: Keypoints from the second image
+        matches: List of matches (i, j, score)
+        max_matches: Maximum number of matches to draw
+        
+    Returns:
+        Image with drawn matches
+    """
+    # Sort matches by score (assuming third element is the score)
+    # For SSD, lower is better; for NCC, higher is better
+    # We'll assume the caller has sorted matches appropriately
+    matches = matches[:max_matches]
+    
+    # Create output image
+    h1, w1 = img1.shape[:2]
+    h2, w2 = img2.shape[:2]
+    output = np.zeros((max(h1, h2), w1 + w2, 3), dtype=np.uint8)
+    
+    # Place images side by side
+    if len(img1.shape) == 2:
+        output[:h1, :w1, :] = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+    else:
+        output[:h1, :w1, :] = img1
+        
+    if len(img2.shape) == 2:
+        output[:h2, w1:w1+w2, :] = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
+    else:
+        output[:h2, w1:w1+w2, :] = img2
+    
+    # Draw matches
+    for idx1, idx2, _ in matches:
+        # Get keypoint coordinates
+        x1, y1 = int(keypoints1[idx1].pt[0]), int(keypoints1[idx1].pt[1])
+        x2, y2 = int(keypoints2[idx2].pt[0]), int(keypoints2[idx2].pt[1])
+        
+        # Draw circles at keypoints
+        cv2.circle(output, (x1, y1), 4, (0, 255, 0), 1)
+        cv2.circle(output, (x2 + w1, y2), 4, (0, 255, 0), 1)
+        
+        # Draw line between matches
+        cv2.line(output, (x1, y1), (x2 + w1, y2), (0, 255, 255), 1)
+    
+    return output
