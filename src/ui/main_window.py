@@ -2225,21 +2225,14 @@ class MainWindow(QMainWindow):
     
     def extractSift(self):
         # By hand implementation
-        # keypoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
-        # descriptors, oriented_keypoints = extract_sift_descriptors(self.original_image, keypoints)
+        keypoints = generateSiftDescriptors(self.original_image, self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
+        descriptors, oriented_keypoints = extract_sift_descriptors(self.original_image, keypoints)
         # print(f"first descriptor: {descriptors[0]}")
         self.current_image = self.original_image.copy()
-        # Convert extracted keypoints to cv2 keypoints objects for visualization
-        # cv2_keypoints = []
-        # for kp in keypoints:
-        #     x, y, sigmaOrientation, octaveIdx = kp
-        #     # Size can be related to scale, angle -1 means no angle assigned yet, response is related to strength of keypoint
-        #     keypoint = cv2.KeyPoint(x=float(x), y=float(y), size=10.0, angle=-1, response=0, octave=octaveIdx, class_id=-1)
-        #     cv2_keypoints.append(keypoint)
         
-        #CV2 Implementation (for testing)
-        sift = cv2.SIFT_create()
-        oriented_keypoints, descriptors = sift.detectAndCompute(self.original_image, None)        
+        # CV2 Implementation (for testing)
+        # sift = cv2.SIFT_create()
+        # oriented_keypoints, descriptors = sift.detectAndCompute(self.original_image, None)        
         self.current_image = cv2.drawKeypoints(self.current_image, oriented_keypoints, None, color=(0,255,0), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         self.update_image_display()
    
