@@ -109,7 +109,7 @@ def get_orientation_histogram(grad_mag, grad_dir, center, scale, bins=36):
     hist = np.zeros(bins)
     bin_width = 360 / bins   # each bin is of width 10
     # print(f"binwidth = {bin_width}")
-    radius = int(6 * scale)  # Typically 6σ
+    radius = int(6 * scale)  # typically 6 sigma
     
     x, y = center
     x_min = max(0, int(x - radius))
@@ -126,7 +126,7 @@ def get_orientation_histogram(grad_mag, grad_dir, center, scale, bins=36):
             if dist_sq > radius**2:
                 continue
                 
-            # Gaussian weight based on distance (σ = 1.5*scale)
+            # Gaussian weight based on distance (sigma = 1.5*scale)
             weight = np.exp(-dist_sq / (2 * (1.5 * scale)**2))
             mag = grad_mag[yi, xi] * weight
             
@@ -152,8 +152,7 @@ def get_dominant_orientations(hist, peak_ratio=0.8):
     
     return orientations
 
-def get_rotated_coords(x, y, cos_t, sin_t):
-    return x * cos_t - y * sin_t, x * sin_t + y * cos_t
+
 
 def get_sift_descriptor(grad_mag, grad_dir, kpt, orientation):
     x, y, scale, _, _ = kpt
@@ -169,18 +168,18 @@ def get_sift_descriptor(grad_mag, grad_dir, kpt, orientation):
     # to form the 16x16 region where the feature is centered 
     grid = np.arange(-8, 8)  
     
-    for i, y_rot in enumerate(grid):
-        for j, x_rot in enumerate(grid):
-            # Rotate coordinates
-            x_r = x_rot*cos_t - y_rot*sin_t
-            y_r = x_rot*sin_t + y_rot*cos_t
+    for i, y_grid in enumerate(grid):
+        for j, x_grid in enumerate(grid):
+            # Rotate grid coordinates with the dominant orientation angle
+            x_grid_rotated = x_grid*cos_t - y_grid*sin_t
+            y_grid_rotated = x_grid*sin_t + y_grid*cos_t
             
             # Sample image
-            xi, yi = int(x + x_r), int(y + y_r)
+            xi, yi = int(x + x_grid_rotated), int(y + y_grid_rotated)
             if not (0 <= xi < grad_mag.shape[1] and 0 <= yi < grad_mag.shape[0]):
                 continue
                 
-            # Simplified binning (no Gaussian weighting)
+            # making our reference orientation towards the zero angle 
             angle = (grad_dir[yi, xi] - orientation) % (360)
             sub_x = j // 4  # Integer division for subregions
             sub_y = i // 4
@@ -190,7 +189,7 @@ def get_sift_descriptor(grad_mag, grad_dir, kpt, orientation):
             desc_idx = (sub_y*n_subregions + sub_x)*n_bins + bin_idx  # for sub_y = 0, sub_x = 1 (second subregion on the right)
                                                                       # desc_idx = (0 + 1) * 8 + bin_idx = 8 + bin_idx as we concatinate bins
                                                                       # desc_idx is the idx of the bin in the 128 descriptor (0 -> 127) 
-            mag_weight = np.exp(-(x_r**2 + y_r**2)/ (2 * (sigma**2)))
+            mag_weight = np.exp(-(x_grid_rotated**2 + y_grid_rotated**2)/ (2 * (sigma**2)))
             desc[desc_idx] += (mag_weight * grad_mag[yi, xi])  # using weighted magnitudes
     
     # normalization for becoming illumnation invariant
@@ -256,11 +255,11 @@ def match_descriptors_ssd(descriptors1, descriptors2, threshold=None):
             if distance < min_distance:
                 min_distance = distance
                 best_match_idx = j
-        
+        # print(min_distance)
         # Apply threshold if provided
         if threshold is None or min_distance < threshold:
             matches.append((i, best_match_idx, min_distance))
-    
+        print(len(matches))
     return matches
 
 def match_descriptors_ncc(descriptors1, descriptors2, threshold=None):
