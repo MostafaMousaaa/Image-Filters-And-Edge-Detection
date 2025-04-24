@@ -27,7 +27,7 @@ def Harris(img, k=0.04, th=0.01):
     
     S_xx, S_yy, S_xy = Hessian_matrix(img)  # Compute Hessian matrix components
  
-    k = 0.04  # Sensitivity factor 
+   
     detM = (S_xx * S_yy) - (S_xy ** 2)
     traceM = S_xx + S_yy
     R = detM - k * (traceM ** 2)
