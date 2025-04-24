@@ -306,48 +306,50 @@ def match_descriptors_ncc(descriptors1, descriptors2, threshold=None):
     
     return matches
 
-def filter_and_sort_matches(matches, max_matches=50):
+def filter_and_sort_matches(matches, max_matches=50, reverse=False):
     """
     Filter and sort matches for visualization.
-    
+
     Args:
         matches: List of matches (i, j, score).
         max_matches: Maximum number of matches to return.
-        
+        reverse: Sorting order. False for ascending, True for descending.
+
     Returns:
         Filtered and sorted matches.
     """
-    # Sort matches based on the score (ascending for SSD, descending for NCC)
-    matches = sorted(matches, key=lambda x: x[2], reverse=False)  # Adjust reverse for NCC if needed
+    matches = sorted(matches, key=lambda x: x[2], reverse=reverse)
     return matches[:max_matches]
 
 def match_descriptors(descriptors1, descriptors2, method='ssd', threshold=None):
     """
     Match descriptors using the specified method.
-    
+
     Args:
         descriptors1: Descriptors from the first image
         descriptors2: Descriptors from the second image
         method: 'ssd' for Sum of Squared Differences or 'ncc' for Normalized Cross Correlation
         threshold: Optional threshold for filtering matches
-        
+
     Returns:
         List of matches with their scores
     """
     start_time = cv2.getTickCount()
-    
+
     if method.lower() == 'ssd':
         matches = match_descriptors_ssd(descriptors1, descriptors2, threshold)
+        reverse = False  # Ascending: lower SSD is better
     elif method.lower() == 'ncc':
         matches = match_descriptors_ncc(descriptors1, descriptors2, threshold)
+        reverse = True   # Descending: higher NCC is better
     else:
         raise ValueError(f"Unknown matching method: {method}. Use 'ssd' or 'ncc'.")
-    
-    matches = filter_and_sort_matches(matches)
-    
+
+    matches = filter_and_sort_matches(matches, reverse=reverse)
+
     end_time = cv2.getTickCount()
     matching_time = (end_time - start_time) / cv2.getTickFrequency()
-    
+
     print(f"Matching computation time ({method}): {matching_time:.4f} seconds")
     return matches
 
