@@ -25,7 +25,7 @@ from ..processing.thresholding import global_threshold, local_threshold
 from ..processing.frequency_domain import gaussian_low_pass_filter
 from ..processing.frequency_domain import butterworth_high_pass_filter
 from ..processing.hybrid_images import create_hybrid_image
-from ..processing.sift import generateSiftDescriptors, extract_sift_descriptors
+from ..processing.sift import generateSiftDescriptors, extract_sift_descriptors, match_descriptors, draw_matches
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
 from src.ui.active_contour_panel import ActiveContourPanel
@@ -1284,6 +1284,17 @@ class MainWindow(QMainWindow):
         sift_layout.addWidget(sigma_label)
         sift_layout.addWidget(self.sigma_spinbox)
 
+        # --- Add matching method selection ---
+        match_method_group = QGroupBox("Feature Matching Method")
+        match_method_layout = QHBoxLayout()
+        self.match_method_combo = QComboBox()
+        self.match_method_combo.addItems(["SSD (Sum of Squared Differences)", "NCC (Normalized Cross Correlation)"])
+        match_method_layout.addWidget(QLabel("Select Matching Method:"))
+        match_method_layout.addWidget(self.match_method_combo)
+        match_method_group.setLayout(match_method_layout)
+        sift_layout.addWidget(match_method_group)
+        # --- End matching method selection ---
+
         self.dual_image_view = DualImageView()
         sift_layout.addWidget(self.dual_image_view)
         # Connect signals
@@ -2284,9 +2295,29 @@ class MainWindow(QMainWindow):
     def matchImages(self):
         if self.dual_image_view.image1 is None or self.dual_image_view.image2 is None:
             return
-        
+
+        # Extract descriptors and keypoints
         first_descriptors, first_keypoints = self.extractSift1()
         second_descriptors, second_keypoints = self.extractSift2()
+        if first_descriptors is None or second_descriptors is None:
+            return
+
+        # Determine matching method
+        method_text = self.match_method_combo.currentText()
+        if "SSD" in method_text:
+            match_method = "ssd"
+        else:
+            match_method = "ncc"
+
+        # Perform matching
+        matches = match_descriptors(first_descriptors, second_descriptors, method=match_method)
+
+        # Draw matches and update main image display
+        img1 = self.original_first_image if self.original_first_image is not None else self.dual_image_view.image1
+        img2 = self.original_second_image if self.original_second_image is not None else self.dual_image_view.image2
+        matched_img = draw_matches(img1, first_keypoints, img2, second_keypoints, matches, max_matches=30)
+        self.current_image = matched_img
+        self.update_image_display()
    
 def main():
     app = QApplication(sys.argv)
