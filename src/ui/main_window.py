@@ -26,6 +26,7 @@ from ..processing.frequency_domain import gaussian_low_pass_filter
 from ..processing.frequency_domain import butterworth_high_pass_filter
 from ..processing.hybrid_images import create_hybrid_image
 from ..processing.sift import generateSiftDescriptors, extract_sift_descriptors, match_descriptors, draw_matches
+from ..processing.extract_features import lambda_minus,Harris
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
 from src.ui.active_contour_panel import ActiveContourPanel
@@ -297,6 +298,7 @@ class MainWindow(QMainWindow):
         self.setup_edge_detection()
 
         self.setup_sift_tab()
+        self.setup_harris_tab()
         
         # Set tab icons if available
         try:
@@ -1327,6 +1329,62 @@ class MainWindow(QMainWindow):
         
         self.sidebar.addTab(sift_widget, "SIFT")
     
+    # HARRIS 
+    def setup_harris_tab(self):
+        harris_widget = QWidget()
+        harris_layout = QVBoxLayout(harris_widget)
+
+        # K slider
+        k_label = QLabel("K:")
+        self.k_slider = QSlider(Qt.Orientation.Horizontal)
+        self.k_slider.setRange(4, 9)  # Representing 0.04 to 0.09 as integers
+        self.k_slider.setValue(6)  # Default value (0.06)
+        self.k_value_label = QLabel("0.06")
+        self.k_slider.valueChanged.connect(lambda v: self.k_value_label.setText(f"{v / 100:.2f}"))
+        harris_layout.addWidget(k_label)
+        harris_layout.addWidget(self.k_slider)
+        harris_layout.addWidget(self.k_value_label)
+
+        # Threshold slider
+        threshold_label = QLabel("Threshold:")
+        self.threshold_slider = QSlider(Qt.Orientation.Horizontal)
+        self.threshold_slider.setRange(1, 100)  # Representing 0.001 to 0.1 as integers
+        self.threshold_slider.setValue(50)  # Default value (0.05)
+        self.threshold_value_label = QLabel("0.05")
+        self.threshold_slider.valueChanged.connect(lambda v: self.threshold_value_label.setText(f"{v / 1000:.3f}"))
+        harris_layout.addWidget(threshold_label)
+        harris_layout.addWidget(self.threshold_slider)
+        harris_layout.addWidget(self.threshold_value_label)
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        extract_harris_button = QPushButton("Extract Harris Features")
+        extract_lambda_button = QPushButton("Extract Lambda Minus Features")
+        button_layout.addWidget(extract_harris_button)
+        button_layout.addWidget(extract_lambda_button)
+        harris_layout.addLayout(button_layout)
+
+        # Connect buttons to functions
+        extract_harris_button.clicked.connect(
+            lambda: self._apply_and_update_image(Harris, self.k_slider.value() / 100, self.threshold_slider.value() / 1000)
+        )
+        extract_lambda_button.clicked.connect(
+            lambda: self._apply_and_update_image(lambda_minus, self.k_slider.value() / 100, self.threshold_slider.value() / 1000)
+        )
+
+     
+        # Add stretch to push everything up
+        harris_layout.addStretch()
+
+        self.sidebar.addTab(harris_widget, "Harris")
+    def _apply_and_update_image(self, func, *args):
+            if self.current_image is not None:
+                self.current_image = func(self.current_image, *args)
+                self.update_image_display()
+
+
+
+
     def _update_low_threshold_label(self, value):
         self.low_threshold_label.setText(str(value))
     
