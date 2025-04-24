@@ -2323,9 +2323,14 @@ class MainWindow(QMainWindow):
         if self.original_first_image is None:
             self.original_first_image = self.dual_image_view.image1
         image1 = self.original_first_image
+        sift_start_time = cv2.getTickCount()  # starting timer for computing sift time
+        
         keypoints = generateSiftDescriptors(image1.copy(), self.octave_layers_spinbox.value(), self.sigma_spinbox.value(), self.threshold_spinbox.value(), self.edge_threshold_spinbox.value())
         descriptors, oriented_keypoints = extract_sift_descriptors(image1.copy(), keypoints)
         
+        sift_end_time = cv2.getTickCount() # ending sift timer
+        sift_matching_time = (sift_end_time - sift_start_time) / cv2.getTickFrequency()
+        print(f"SIFT matching time: {sift_matching_time} seconds")
         # CV2 Implementation (for testing)
         # sift = cv2.SIFT_create()
         # oriented_keypoints, descriptors = sift.detectAndCompute(image1.copy(), None)        

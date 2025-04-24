@@ -2,18 +2,7 @@ import math
 import cv2
 import numpy as np
 from .filters import gaussian_filter_custom
-'''
-For given set of images (grayscale and color)
-A) Tasks to implement
-• Extract the unique features in all images using Harris
-operator and λ-. Report computation times to generate these
-points.
-• Generate feature descriptors using scale invariant features
-(SIFT). Report computation time.
-• Match the image set features using sum of squared
-differences (SSD) and normalized cross correlations. Report
-matching computation time.
-'''
+
 def generateSiftDescriptors(img, octaveLayersNum, sigma, keypointThreshold, edgeThreshold):
     if img is None:
         return []
@@ -228,18 +217,7 @@ def extract_sift_descriptors(image, keypoints):
     return np.array(descriptors), np.array(oriented_keypoints)
 
 def match_descriptors_ssd(descriptors1, descriptors2, threshold=None):
-    """
-    Match descriptors using Sum of Squared Differences (SSD).
-    Lower values indicate better matches.
     
-    Args:
-        descriptors1: Descriptors from the first image
-        descriptors2: Descriptors from the second image
-        threshold: Optional threshold for filtering matches
-        
-    Returns:
-        List of matches (indices of matched descriptors)
-    """
     matches = []
     
     # For each descriptor in the first image
@@ -263,18 +241,7 @@ def match_descriptors_ssd(descriptors1, descriptors2, threshold=None):
     return matches
 
 def match_descriptors_ncc(descriptors1, descriptors2, threshold= None):
-    """
-    Match descriptors using Normalized Cross Correlation (NCC).
-    Higher values indicate better matches (closer to 1).
     
-    Args:
-        descriptors1: Descriptors from the first image
-        descriptors2: Descriptors from the second image
-        threshold: Optional threshold for filtering matches
-        
-    Returns:
-        List of matches (indices of matched descriptors)
-    """
     matches = []
     
     # For each descriptor in the first image
@@ -306,33 +273,12 @@ def match_descriptors_ncc(descriptors1, descriptors2, threshold= None):
     return matches
 
 def filter_and_sort_matches(matches, max_matches=50, reverse=False):
-    """
-    Filter and sort matches for visualization.
-
-    Args:
-        matches: List of matches (i, j, score).
-        max_matches: Maximum number of matches to return.
-        reverse: Sorting order. False for ascending, True for descending.
-
-    Returns:
-        Filtered and sorted matches.
-    """
+    
     matches = sorted(matches, key=lambda x: x[2], reverse=reverse)
     return matches[:max_matches]
 
 def match_descriptors(descriptors1, descriptors2, method='ssd', threshold=None):
-    """
-    Match descriptors using the specified method.
-
-    Args:
-        descriptors1: Descriptors from the first image
-        descriptors2: Descriptors from the second image
-        method: 'ssd' for Sum of Squared Differences or 'ncc' for Normalized Cross Correlation
-        threshold: Optional threshold for filtering matches
-
-    Returns:
-        List of matches with their scores
-    """
+    
     start_time = cv2.getTickCount()
 
     if method.lower() == 'ssd':
@@ -353,20 +299,7 @@ def match_descriptors(descriptors1, descriptors2, method='ssd', threshold=None):
     return matches
 
 def draw_matches(img1, keypoints1, img2, keypoints2, matches, max_matches=50):
-    """
-    Draw matches between two images.
     
-    Args:
-        img1: First image
-        keypoints1: Keypoints from the first image
-        img2: Second image
-        keypoints2: Keypoints from the second image
-        matches: List of matches (i, j, score)
-        max_matches: Maximum number of matches to draw
-        
-    Returns:
-        Image with drawn matches
-    """
     # Sort matches by score (assuming third element is the score)
     # For SSD, lower is better; for NCC, higher is better
     # We'll assume the caller has sorted matches appropriately
