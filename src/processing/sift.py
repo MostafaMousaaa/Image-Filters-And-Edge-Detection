@@ -262,7 +262,7 @@ def match_descriptors_ssd(descriptors1, descriptors2, threshold=None):
         print(len(matches))
     return matches
 
-def match_descriptors_ncc(descriptors1, descriptors2, threshold=None):
+def match_descriptors_ncc(descriptors1, descriptors2, threshold= None):
     """
     Match descriptors using Normalized Cross Correlation (NCC).
     Higher values indicate better matches (closer to 1).
@@ -298,7 +298,7 @@ def match_descriptors_ncc(descriptors1, descriptors2, threshold=None):
             if correlation > max_correlation:
                 max_correlation = correlation
                 best_match_idx = j
-        
+        #print(max_correlation)
         # Apply threshold if provided (for NCC, we want values above threshold)
         if threshold is None or max_correlation > threshold:
             matches.append((i, best_match_idx, max_correlation))
@@ -336,10 +336,10 @@ def match_descriptors(descriptors1, descriptors2, method='ssd', threshold=None):
     start_time = cv2.getTickCount()
 
     if method.lower() == 'ssd':
-        matches = match_descriptors_ssd(descriptors1, descriptors2, threshold)
+        matches = match_descriptors_ssd(descriptors1, descriptors2, threshold = 0.5)  # 0.5
         reverse = False  # Ascending: lower SSD is better
     elif method.lower() == 'ncc':
-        matches = match_descriptors_ncc(descriptors1, descriptors2, threshold)
+        matches = match_descriptors_ncc(descriptors1, descriptors2, threshold = 0.69)  # 0.69
         reverse = True   # Descending: higher NCC is better
     else:
         raise ValueError(f"Unknown matching method: {method}. Use 'ssd' or 'ncc'.")
