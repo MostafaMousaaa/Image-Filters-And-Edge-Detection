@@ -1,18 +1,14 @@
 '''
-i want to implement a function that takes an image and a threshold value as input and returns the binary image obtained by applying the threshold to the input image. The function should also return the number of pixels in the binary image that are above the threshold.
+This module implements optimal thresholding algorithms for image segmentation:
 
-1-Global Optimal Iterative Thresholding
-int globalOptimalIterativeThresholding(Image &inputImg);
-function parameters:
-inputImg: reference to gray Image
-function return: return threshold
+1-Global Optimal Iterative Thresholding:
+   Takes a grayscale image and iteratively finds the optimal threshold
+   Returns the threshold value, binary image, and count of pixels above threshold
 
-2-Local Optimal Iterative Thresholding
-Image localOptimalIterativeThresholding(Image &inputImg, int blockDim);
-function parameters:
-inputImg: reference to gray Image
-blockDim: block dimension (eg, 5 means 5 x 5)
-function return: return threshold
+2-Local Optimal Iterative Thresholding:
+   Takes a grayscale image and a block size
+   Applies thresholding locally to each block using the global method
+   Returns the binary image
 '''
 
 import numpy as np
@@ -67,7 +63,9 @@ def global_optimal_iterative_thresholding(input_img: np.ndarray) -> Tuple[int, n
     return int(T), binary_image, num_pixels_above_threshold
 
 
+
 def local_optimal_iterative_thresholding(input_img: np.ndarray, block_dim: int) -> np.ndarray:
+
     """
     Apply local optimal iterative thresholding to an image.
 
