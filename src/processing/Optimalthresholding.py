@@ -1,19 +1,29 @@
 '''
-This module implements optimal thresholding algorithms for image segmentation:
+This module implements optimal and spectral thresholding algorithms for image segmentation:
 
-1-Global Optimal Iterative Thresholding:
+1. Global Optimal Iterative Thresholding:
    Takes a grayscale image and iteratively finds the optimal threshold
    Returns the threshold value, binary image, and count of pixels above threshold
 
-2-Local Optimal Iterative Thresholding:
+2. Local Optimal Iterative Thresholding:
    Takes a grayscale image and a block size
    Applies thresholding locally to each block using the global method
+   Returns the binary image
+
+3. Global Spectral Thresholding:
+   Takes a grayscale image and segments it based on histogram valley detection
+   Returns the threshold value, binary image, and count of pixels above threshold
+
+4. Local Spectral Thresholding:
+   Takes a grayscale image and a block size
+   Applies spectral thresholding locally to each block
    Returns the binary image
 '''
 
 import numpy as np
 import cv2
 from typing import Tuple, Any
+from scipy.signal import find_peaks, savgol_filter
 
 def global_optimal_iterative_thresholding(input_img: np.ndarray) -> Tuple[int, np.ndarray, int]:
     """
@@ -63,9 +73,7 @@ def global_optimal_iterative_thresholding(input_img: np.ndarray) -> Tuple[int, n
     return int(T), binary_image, num_pixels_above_threshold
 
 
-
 def local_optimal_iterative_thresholding(input_img: np.ndarray, block_dim: int) -> np.ndarray:
-
     """
     Apply local optimal iterative thresholding to an image.
 
@@ -100,6 +108,120 @@ def local_optimal_iterative_thresholding(input_img: np.ndarray, block_dim: int) 
             # Apply the threshold to the block
             binary_image[i:i + block_dim, j:j + block_dim] = (block >= T).astype(np.uint8) * 255
 
+    return binary_image
+
+
+def global_spectral_thresholding(input_img: np.ndarray) -> Tuple[int, np.ndarray, int]:
+    """
+    Apply global spectral thresholding based on histogram valley detection.
+    
+    Parameters:
+    input_img (np.ndarray): Input grayscale image.
+    
+    Returns:
+    Tuple[int, np.ndarray, int]: Tuple containing the optimal threshold value,
+                                 the binary image, and the number of pixels above the threshold.
+    """
+    # Ensure the input image is valid and in grayscale
+    if input_img is None:
+        raise ValueError("Input image is None.")
+    if len(input_img.shape) != 2:
+        raise ValueError("Input image must be a grayscale image.")
+    
+    # Calculate histogram
+    hist, bins = np.histogram(input_img.flatten(), 256, [0, 256])
+    
+    # Smooth the histogram to remove noise
+    hist_smooth = savgol_filter(hist, 15, 2)
+    
+    # Normalize the histogram
+    hist_norm = hist_smooth / np.sum(hist_smooth)
+    
+    # Find valleys (local minima) in the smoothed histogram
+    # Valleys are where spectral thresholds often exist
+    peaks, _ = find_peaks(-hist_norm)
+    
+    # If no valleys found, use the otsu method as fallback
+    if len(peaks) == 0:
+        thresh, binary_img = cv2.threshold(input_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        pixels_above = np.sum(binary_img > 0)
+        return int(thresh), binary_img, pixels_above
+    
+    # Evaluate the "deepness" of each valley by its neighboring peaks
+    valley_scores = []
+    for peak in peaks:
+        # Skip boundaries
+        if peak <= 5 or peak >= 250:
+            continue
+            
+        # Calculate the "deepness" - lower is better
+        left_max = np.max(hist_norm[max(0, peak-20):peak])
+        right_max = np.max(hist_norm[peak+1:min(255, peak+21)])
+        valley_score = hist_norm[peak] / ((left_max + right_max) / 2)
+        valley_scores.append((peak, valley_score))
+    
+    # Sort by score (smaller is better as it means deeper valley)
+    if valley_scores:
+        valley_scores.sort(key=lambda x: x[1])
+        best_threshold = valley_scores[0][0]
+    else:
+        # If no valid valleys, use the overall minimum
+        best_threshold = peaks[np.argmin(hist_norm[peaks])]
+    
+    # Create binary image
+    binary_image = (input_img >= best_threshold).astype(np.uint8) * 255
+    
+    # Count pixels above threshold
+    pixels_above = np.sum(binary_image > 0)
+    
+    return int(best_threshold), binary_image, pixels_above
+
+
+def local_spectral_thresholding(input_img: np.ndarray, block_dim: int) -> np.ndarray:
+    """
+    Apply local spectral thresholding to an image.
+    
+    Parameters:
+    input_img (np.ndarray): Input grayscale image.
+    block_dim (int): Block dimension (e.g., 5 means 5 x 5).
+    
+    Returns:
+    np.ndarray: Binary image after local spectral thresholding.
+    """
+    # Ensure the input image is valid and in grayscale
+    if input_img is None:
+        raise ValueError("Input image is None.")
+    if len(input_img.shape) != 2:
+        raise ValueError("Input image must be a grayscale image.")
+    
+    # Get the dimensions of the input image
+    rows, cols = input_img.shape
+    
+    # Create an output binary image
+    binary_image = np.zeros_like(input_img, dtype=np.uint8)
+    
+    # Iterate over the image in blocks
+    for i in range(0, rows, block_dim):
+        for j in range(0, cols, block_dim):
+            # Define the block boundaries
+            block = input_img[i:i + block_dim, j:j + block_dim]
+            
+            # Skip very small blocks at the edges
+            if block.size <= 10:
+                binary_image[i:i + block_dim, j:j + block_dim] = 0
+                continue
+                
+            try:
+                # Calculate the spectral threshold for the current block
+                T, _, _ = global_spectral_thresholding(block)
+                
+                # Apply the threshold to the block
+                binary_image[i:i + block_dim, j:j + block_dim] = (block >= T).astype(np.uint8) * 255
+            except Exception as e:
+                # If there's an error processing the block, use a simple mean threshold
+                T = np.mean(block)
+                binary_image[i:i + block_dim, j:j + block_dim] = (block >= T).astype(np.uint8) * 255
+    
     return binary_image
 
 
