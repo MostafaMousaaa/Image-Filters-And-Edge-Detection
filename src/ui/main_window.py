@@ -301,6 +301,7 @@ class MainWindow(QMainWindow):
         self.setup_sift_tab()
         self.setup_harris_tab()
         self.setup_otsu_tab()
+        self.setup_kmeans_tab()
         
         # Set tab icons if available
         try:
@@ -1462,6 +1463,63 @@ class MainWindow(QMainWindow):
         self.sidebar.addTab(otsu_widget, "Otsu Thresholding")
 
     
+    def setup_kmeans_tab(self):
+        kmeans_widget = QWidget()
+        kmeans_layout = QVBoxLayout(kmeans_widget)
+        
+        # Group box for K-means clustering
+        kmeans_group = QGroupBox("K-means Clustering")
+        kmeans_group.setObjectName("paramGroupBox")
+        kmeans_inner_layout = QVBoxLayout()
+        
+        # Information label
+        info_label = QLabel("K-means clustering segments the image into K clusters based on pixel values.")
+        info_label.setWordWrap(True)
+        info_label.setObjectName("infoLabel")
+        kmeans_inner_layout.addWidget(info_label)
+        
+        # Number of clusters parameter
+        clusters_layout = QHBoxLayout()
+        clusters_label = QLabel("Number of Clusters (K):")
+        clusters_label.setObjectName("paramLabel")
+        clusters_layout.addWidget(clusters_label)
+        
+        self.kmeans_clusters = QSpinBox()
+        self.kmeans_clusters.setRange(2, 10)
+        self.kmeans_clusters.setValue(3)
+        self.kmeans_clusters.setObjectName("paramSpinBox")
+        clusters_layout.addWidget(self.kmeans_clusters)
+        kmeans_inner_layout.addLayout(clusters_layout)
+        
+        # Number of iterations parameter
+        iterations_layout = QHBoxLayout()
+        iterations_label = QLabel("Number of Iterations:")
+        iterations_label.setObjectName("paramLabel")
+        iterations_layout.addWidget(iterations_label)
+        
+        self.kmeans_iterations = QSpinBox()
+        self.kmeans_iterations.setRange(1, 100)
+        self.kmeans_iterations.setValue(10)
+        self.kmeans_iterations.setObjectName("paramSpinBox")
+        iterations_layout.addWidget(self.kmeans_iterations)
+        kmeans_inner_layout.addLayout(iterations_layout)
+        
+        # Apply button
+        apply_kmeans_button = QPushButton("Apply K-means")
+        apply_kmeans_button.setObjectName("actionButton")
+        apply_kmeans_button.clicked.connect(self.apply_kmeans)
+        kmeans_inner_layout.addWidget(apply_kmeans_button)
+        
+        kmeans_group.setLayout(kmeans_inner_layout)
+        kmeans_layout.addWidget(kmeans_group)
+        
+        # Add stretch to push everything up
+        kmeans_layout.addStretch()
+        
+        self.sidebar.addTab(kmeans_widget, "K-means")
+
+
+    
     
     def _apply_and_update_image(self, func, *args):
             if self.current_image is not None:
@@ -2496,6 +2554,41 @@ class MainWindow(QMainWindow):
         self.current_image = thresholded_img
         self.update_image_display()
         self.statusBar().showMessage(f"Applied Otsu thresholding (threshold={optimal_threshold_value})")
+
+    def apply_kmeans(self):
+        if self.current_image is None:
+            self.statusBar().showMessage("No image loaded")
+            return
+        
+        # Get parameters
+        k = self.kmeans_clusters.value()
+        iterations = self.kmeans_iterations.value()
+        
+        # Convert image to appropriate format for K-means
+        image = self.current_image.copy()
+        
+        # Reshape the image to a 2D array of pixels
+        pixels = image.reshape((-1, 3)) if len(image.shape) == 3 else image.reshape((-1, 1))
+        pixels = np.float32(pixels)
+        
+        # Define criteria and apply K-means
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, iterations, 1.0)
+        _, labels, centers = cv2.kmeans(pixels, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+        
+        # Convert back to 8-bit values
+        centers = np.uint8(centers)
+        
+        # Map labels to center values
+        segmented_image = centers[labels.flatten()]
+        
+        # Reshape back to the original image shape
+        segmented_image = segmented_image.reshape(image.shape)
+        
+        # Update the current image
+        self.current_image = segmented_image
+        self.update_image_display()
+        
+        self.statusBar().showMessage(f"Applied K-means clustering with {k} clusters and {iterations} iterations")
 
    
 def main():
