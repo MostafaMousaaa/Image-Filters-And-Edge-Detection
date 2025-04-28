@@ -27,6 +27,7 @@ from ..processing.frequency_domain import butterworth_high_pass_filter
 from ..processing.hybrid_images import create_hybrid_image
 from ..processing.sift import generateSiftDescriptors, extract_sift_descriptors, match_descriptors, draw_matches
 from ..processing.extract_features import lambda_minus,Harris
+from ..processing.otsu import otsu_threshold
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
 from src.ui.active_contour_panel import ActiveContourPanel
@@ -2483,17 +2484,18 @@ class MainWindow(QMainWindow):
             kernel_size = self.otsu_blur_kernel.value()
             gray_image = cv2.GaussianBlur(gray_image, (kernel_size, kernel_size), 0)
         
-        # Apply Otsu's thresholding
-        _, thresholded = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # Apply Otsu's thresholding using openCV
+        # optimal_threshold_value, thresholded_img = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        optimal_threshold_value, thresholded_img = otsu_threshold(gray_image)
         
         # Get the calculated threshold value
-        otsu_thresh_value = _
-        self.otsu_threshold_value.setText(str(otsu_thresh_value))
+        
+        self.otsu_threshold_value.setText(str(optimal_threshold_value))
         
         # Update the image
-        self.current_image = thresholded
+        self.current_image = thresholded_img
         self.update_image_display()
-        self.statusBar().showMessage(f"Applied Otsu thresholding (threshold={otsu_thresh_value})")
+        self.statusBar().showMessage(f"Applied Otsu thresholding (threshold={optimal_threshold_value})")
 
    
 def main():
