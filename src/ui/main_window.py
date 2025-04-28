@@ -299,6 +299,7 @@ class MainWindow(QMainWindow):
 
         self.setup_sift_tab()
         self.setup_harris_tab()
+        self.setup_otsu_tab()
         
         # Set tab icons if available
         try:
@@ -1377,6 +1378,90 @@ class MainWindow(QMainWindow):
         harris_layout.addStretch()
 
         self.sidebar.addTab(harris_widget, "Harris")
+        
+        
+    def setup_otsu_tab(self):
+        otsu_widget = QWidget()
+        otsu_layout = QVBoxLayout(otsu_widget)
+        
+        # Group box for Otsu thresholding
+        otsu_group = QGroupBox("Otsu Thresholding")
+        otsu_group.setObjectName("paramGroupBox")
+        otsu_inner_layout = QVBoxLayout()
+        
+        # Information label
+        info_label = QLabel("Otsu's method automatically determines the optimal threshold value by minimizing intra-class variance.")
+        info_label.setWordWrap(True)
+        info_label.setObjectName("infoLabel")
+        otsu_inner_layout.addWidget(info_label)
+        
+        # Options for Otsu
+        options_group = QGroupBox("Options")
+        options_layout = QVBoxLayout()
+        
+        # Gaussian blur option to reduce noise
+        blur_check = QCheckBox("Apply Gaussian blur before thresholding")
+        blur_check.setChecked(True)
+        blur_check.setObjectName("optionCheckbox")
+        options_layout.addWidget(blur_check)
+        self.otsu_blur_check = blur_check
+        
+        # Kernel size for Gaussian blur
+        blur_kernel_layout = QHBoxLayout()
+        blur_kernel_label = QLabel("Blur kernel size:")
+        blur_kernel_label.setObjectName("paramLabel")
+        blur_kernel_layout.addWidget(blur_kernel_label)
+        
+        self.otsu_blur_kernel = QSpinBox()
+        self.otsu_blur_kernel.setRange(3, 15)
+        self.otsu_blur_kernel.setSingleStep(2)  # Ensure odd values
+        self.otsu_blur_kernel.setValue(5)
+        self.otsu_blur_kernel.setObjectName("paramSpinBox")
+        self.otsu_blur_kernel.setEnabled(True)
+        blur_kernel_layout.addWidget(self.otsu_blur_kernel)
+        options_layout.addLayout(blur_kernel_layout)
+        
+        # Connect blur checkbox to enable/disable kernel size
+        blur_check.toggled.connect(self.otsu_blur_kernel.setEnabled)
+        
+        options_group.setLayout(options_layout)
+        otsu_inner_layout.addWidget(options_group)
+        
+        # Display threshold value
+        threshold_display_frame = QFrame()
+        threshold_display_frame.setObjectName("resultsFrame")
+        threshold_display_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        threshold_display_frame.setFrameShadow(QFrame.Shadow.Sunken)
+        threshold_display_layout = QHBoxLayout(threshold_display_frame)
+        
+        threshold_label = QLabel("Calculated Threshold Value:")
+        threshold_label.setObjectName("metricLabel")
+        threshold_display_layout.addWidget(threshold_label)
+        
+        self.otsu_threshold_value = QLabel("--")
+        self.otsu_threshold_value.setObjectName("metricValue")
+        self.otsu_threshold_value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.otsu_threshold_value.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        threshold_display_layout.addWidget(self.otsu_threshold_value)
+        
+        otsu_inner_layout.addWidget(threshold_display_frame)
+        
+        # Apply button
+        apply_otsu_button = QPushButton("Apply Otsu Thresholding")
+        apply_otsu_button.setObjectName("actionButton")
+        apply_otsu_button.clicked.connect(self.apply_otsu_thresholding)
+        otsu_inner_layout.addWidget(apply_otsu_button)
+        
+        otsu_group.setLayout(otsu_inner_layout)
+        otsu_layout.addWidget(otsu_group)
+        
+        # Add stretch to push everything up
+        otsu_layout.addStretch()
+        
+        self.sidebar.addTab(otsu_widget, "Otsu Thresholding")
+
+    
+    
     def _apply_and_update_image(self, func, *args):
             if self.current_image is not None:
                 self.current_image = func(self.current_image, *args)
@@ -2381,6 +2466,35 @@ class MainWindow(QMainWindow):
         matched_img = draw_matches(img1, first_keypoints, img2, second_keypoints, matches, max_matches=30)
         self.current_image = matched_img
         self.update_image_display()
+        
+    def apply_otsu_thresholding(self):
+        if self.current_image is None:
+            self.statusBar().showMessage("No image loaded")
+            return
+        
+        # Convert to grayscale if needed
+        if len(self.current_image.shape) == 3:
+            gray_image = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray_image = self.current_image.copy()
+        
+        # Apply Gaussian blur if checked
+        if self.otsu_blur_check.isChecked():
+            kernel_size = self.otsu_blur_kernel.value()
+            gray_image = cv2.GaussianBlur(gray_image, (kernel_size, kernel_size), 0)
+        
+        # Apply Otsu's thresholding
+        _, thresholded = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        # Get the calculated threshold value
+        otsu_thresh_value = _
+        self.otsu_threshold_value.setText(str(otsu_thresh_value))
+        
+        # Update the image
+        self.current_image = thresholded
+        self.update_image_display()
+        self.statusBar().showMessage(f"Applied Otsu thresholding (threshold={otsu_thresh_value})")
+
    
 def main():
     app = QApplication(sys.argv)
