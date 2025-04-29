@@ -27,7 +27,7 @@ from ..processing.frequency_domain import butterworth_high_pass_filter
 from ..processing.hybrid_images import create_hybrid_image
 from ..processing.sift import generateSiftDescriptors, extract_sift_descriptors, match_descriptors, draw_matches
 from ..processing.extract_features import lambda_minus,Harris
-from ..processing.otsu import otsu_threshold
+from ..processing.otsu import global_otsu_threshold, local_otsu_threshold
 from ..processing.Kmeans import kmeans_segmentation
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
@@ -1449,11 +1449,17 @@ class MainWindow(QMainWindow):
         
         otsu_inner_layout.addWidget(threshold_display_frame)
         
-        # Apply button
-        apply_otsu_button = QPushButton("Apply Otsu Thresholding")
-        apply_otsu_button.setObjectName("actionButton")
-        apply_otsu_button.clicked.connect(self.apply_otsu_thresholding)
+        # Apply button for global otsu
+        apply_otsu_button = QPushButton("Apply global Otsu")
+        apply_otsu_button.setObjectName("globalActionButton")
+        apply_otsu_button.clicked.connect(self.apply_global_otsu_thresholding)
         otsu_inner_layout.addWidget(apply_otsu_button)
+        
+        # Apply button for local otsu
+        apply_local_otsu_button = QPushButton("Apply local Otsu")
+        apply_local_otsu_button.setObjectName("localActionButton")
+        apply_local_otsu_button.clicked.connect(self.apply_local_otsu_thresholding)
+        otsu_inner_layout.addWidget(apply_local_otsu_button)
         
         otsu_group.setLayout(otsu_inner_layout)
         otsu_layout.addWidget(otsu_group)
@@ -2527,7 +2533,7 @@ class MainWindow(QMainWindow):
         self.current_image = matched_img
         self.update_image_display()
         
-    def apply_otsu_thresholding(self):
+    def apply_global_otsu_thresholding(self):
         if self.current_image is None:
             self.statusBar().showMessage("No image loaded")
             return
@@ -2545,7 +2551,7 @@ class MainWindow(QMainWindow):
         
         # Apply Otsu's thresholding using openCV
         # optimal_threshold_value, thresholded_img = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        optimal_threshold_value, thresholded_img = otsu_threshold(gray_image)
+        optimal_threshold_value, thresholded_img = global_otsu_threshold(gray_image)
         
         # Get the calculated threshold value
         
@@ -2555,6 +2561,33 @@ class MainWindow(QMainWindow):
         self.current_image = thresholded_img
         self.update_image_display()
         self.statusBar().showMessage(f"Applied Otsu thresholding (threshold={optimal_threshold_value})")
+        
+    def apply_local_otsu_thresholding(self):
+        if self.current_image is None:
+            self.statusBar().showMessage("No image loaded")
+            return
+        
+        # Convert to grayscale if needed
+        if len(self.current_image.shape) == 3:
+            gray_image = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray_image = self.current_image.copy()
+        
+        # Apply Gaussian blur if checked
+        if self.otsu_blur_check.isChecked():
+            kernel_size = self.otsu_blur_kernel.value()
+            gray_image = cv2.GaussianBlur(gray_image, (kernel_size, kernel_size), 0)
+        
+        # Apply Otsu's thresholding using openCV
+        # optimal_threshold_value, thresholded_img = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        thresholded_img = local_otsu_threshold(gray_image)
+        
+        
+        
+        # Update the image
+        self.current_image = thresholded_img
+        self.update_image_display()
+        
 
     def apply_kmeans(self):
         if self.current_image is None:

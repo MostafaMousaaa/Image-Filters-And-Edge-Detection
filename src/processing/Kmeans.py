@@ -12,7 +12,9 @@ def kmeans_segmentation(image, num_clusters=3, iterations = 10):
         # Assign each pixel to the nearest centroid
         for idx, pixel in enumerate(pixel_colors):
             distances = [np.linalg.norm(pixel - centroid) for centroid in centroids] # distances between this pixel and all the centroids
-            labels[idx] = np.argmin(distances)
+            labels[idx] = np.argmin(distances)  # storing the index of the minimum distance
+                                                # this index corresponds to the index of the cluster it belongs to,
+                                                # which is the same index of the centroid of this cluster.
 
         if iteration == iterations - 1:
             break
@@ -20,7 +22,9 @@ def kmeans_segmentation(image, num_clusters=3, iterations = 10):
         # Update centroids
         new_centroids = []
         for cluster_idx in range(num_clusters):
-            cluster_pixels = pixel_colors[labels == cluster_idx]
+            cluster_pixels = pixel_colors[labels == cluster_idx] # "labels == cluster_idx" returns a true/false array, so the 
+                                                                 # cluster pixels are the pixels at the indices of this true in the pixel's
+                                                                 # colors array
             if len(cluster_pixels) > 0:
                 new_centroids.append(np.mean(cluster_pixels, axis=0))
             else:
