@@ -7,6 +7,7 @@ from PyQt6.QtGui import QIcon, QPixmap, QImage, QAction, QFont, QKeySequence, QA
 from PyQt6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve, QSettings, pyqtSignal
 
 import cv2
+from sklearn.cluster import AgglomerativeClustering
 import numpy as np
 import sys
 import os
@@ -301,6 +302,8 @@ class MainWindow(QMainWindow):
         self.setup_sift_tab()
         self.setup_harris_tab()
         self.setup_otsu_tab()
+        self.setup_mean_shift_tab()
+        self.setup_agglo_clustering_tab()
         
         # Set tab icons if available
         try:
@@ -1460,15 +1463,253 @@ class MainWindow(QMainWindow):
         otsu_layout.addStretch()
         
         self.sidebar.addTab(otsu_widget, "Otsu Thresholding")
+    
+
+    def setup_mean_shift_tab(self):
+        mean_shift_widget = QWidget()
+        mean_shift_layout = QVBoxLayout(mean_shift_widget)
+
+        # Controls how many pixels the mean shift will use to look around x & y position of our image (smaller value preserves fine details)
+        spatial_radius_label = QLabel("Size Of Spatial Window:")
+        self.spatial_radius_spinbox = QSpinBox()
+        self.spatial_radius_spinbox.setRange(5, 20)
+        self.spatial_radius_spinbox.setValue(10)
+        mean_shift_layout.addWidget(spatial_radius_label)
+        mean_shift_layout.addWidget(self.spatial_radius_spinbox)
+
+        # How similar pixel colors must be to be grouped (larger values means different shades of colors can be merged easily)
+        color_radius_label = QLabel("Size Of Color Window:")
+        self.color_radius_spinbox = QSpinBox()
+        self.color_radius_spinbox.setRange(5, 50)
+        self.color_radius_spinbox.setValue(20)
+        mean_shift_layout.addWidget(color_radius_label)
+        mean_shift_layout.addWidget(self.color_radius_spinbox)
+
+        submit_button_mean_shift = QPushButton("Apply Mean Shift")
+        submit_button_mean_shift.clicked.connect(self.applyMeanShift)
+        mean_shift_layout.addWidget(submit_button_mean_shift)
+        
+        # Add stretch to push everything up
+        mean_shift_layout.addStretch()
+        
+        self.sidebar.addTab(mean_shift_widget, "Mean Shift")
+    
+    def setup_agglo_clustering_tab(self):
+        agglo_widget = QWidget()
+        agglo_layout = QVBoxLayout(agglo_widget)
+
+        # Stop After Reaching How Many Clusters
+        clusters_num_label = QLabel("Number Of Clusters:")
+        self.clusters_num_spinbox = QSpinBox()
+        self.clusters_num_spinbox.setRange(2, 10)
+        self.clusters_num_spinbox.setValue(3)
+        agglo_layout.addWidget(clusters_num_label)
+        agglo_layout.addWidget(self.clusters_num_spinbox)
+
+
+        submit_button_agglo = QPushButton("Apply Agglomerative Clustering")
+        submit_button_agglo.clicked.connect(self.applyAgglomerativeClustering)
+        agglo_layout.addWidget(submit_button_agglo)
+        
+        # Add stretch to push everything up
+        agglo_layout.addStretch()
+        
+        self.sidebar.addTab(agglo_widget, "Agglomerative Clustering")
 
     
+    def applyMeanShift(self):
+        if self.current_image is None:
+            return
+        if len(self.original_image.shape) == 2:
+            image = cv2.cvtColor(self.original_image.copy(), cv2.COLOR_GRAY2BGR)
+        else:
+            image = self.original_image.copy()
+        
+        spatial_radius = self.spatial_radius_spinbox.value()
+        color_radius = self.color_radius_spinbox.value()  
+
+        #self.current_image = cv2.pyrMeanShiftFiltering(image, sp=spatial_radius, sr=color_radius, maxLevel=1)
+
+        height = image.shape[0]
+        width = image.shape[1]
+        flat_img = image.reshape((-1, 3))  # Color values: [r, g, b]
     
+        # Create a 5D feature space [x, y, r, g, b] for each pixel (joining both spatial and color domains)
+        features = []
+        for y in range(height):
+            for x in range(width):
+                r, g, b = image[y, x]
+                features.append([float(x), float(y), float(r), float(g), float(b)])
+        features = np.array(features)
+        
+        visited = np.zeros(len(features), dtype=bool)       # Needed for checking if the current feature pixel was already visited or not
+        clustered = np.full(len(features), -1, dtype=int)   # Saves information for each group of pixels that belong to 1 cluster
+        cluster_centers = []                                # Needed for coloring each cluster with its mean color (color of its center pixel)
+        cluster_id = 0                                      # Number of clusters our image has reached
+
+        for i in range(len(features)):
+            if visited[i]:
+                continue
+
+            # Initialize mean at a random unvisited point
+            mean = features[i].copy()
+
+            while True:
+                """# Compute distances in spatial and color space separately
+                spatial_dist = np.linalg.norm(features[:, 0:2] - mean[0:2], axis=1) # This calculates how far every pixel is from the current mean in (x, y) space
+                color_dist = np.linalg.norm(features[:, 2:5] - mean[2:5], axis=1) # This computes the distance in color space (RGB) 
+
+                # Create combined mask for points within both spatial and color radius (Keep only the points that are close in both space and color)
+                mask = (spatial_dist < spatial_radius) & (color_dist < color_radius)"""
+
+                x, y = int(mean[0]), int(mean[1])
+                x_min = max(x - spatial_radius, 0)
+                x_max = min(x + spatial_radius + 1, width)
+                y_min = max(y - spatial_radius, 0)
+                y_max = min(y + spatial_radius + 1, height)
+
+                # Get indices of pixels within the window
+                window_indices = []
+                for yy in range(y_min, y_max):
+                    for xx in range(x_min, x_max):
+                        idx = yy * width + xx
+                        window_indices.append(idx)
+                window_indices = np.array(window_indices)
+
+                window_features = features[window_indices]
+
+                spatial_diff = window_features[:, 0:2] - mean[0:2]
+                color_diff = window_features[:, 2:5] - mean[2:5]
+
+                spatial_dist = np.linalg.norm(spatial_diff, axis=1)
+                color_dist = np.linalg.norm(color_diff, axis=1)
+
+                mask = (spatial_dist < spatial_radius) & (color_dist < color_radius) # Returns a numpy array of either true or false for each point
+
+                # Extract all points within the bandwidth
+                in_bandwidth_points = window_features[mask]
+                if len(in_bandwidth_points) == 0:
+                    break
+
+                # Compute the new mean of these points
+                new_mean = np.mean(in_bandwidth_points, axis=0)
+
+                # Check for convergence
+                shift = np.linalg.norm(new_mean - mean)
+                mean = new_mean
+                if shift < 1.0: # Converged (Reached local peak)
+                    break
+
+            # Check if this mean is close to an existing cluster center
+            merged = False
+            for idx, center in enumerate(cluster_centers):
+                if np.linalg.norm(mean - center) < 0.5 * (spatial_radius + color_radius):
+                    cluster_centers[idx] = 0.5 * (center + mean)  # merge centers
+                    clustered[window_indices[mask]] = idx
+                    merged = True
+                    break
+
+            # If not merged, create a new cluster
+            if not merged:
+                cluster_centers.append(mean)
+                clustered[window_indices[mask]] = cluster_id
+                cluster_id += 1
+
+            visited[window_indices[mask]] = True  # Mark all points in this cluster as visited
+
+        # Create segmented image by coloring each cluster with its mean color
+        segmented_img = np.zeros_like(flat_img)
+        for idx, center in enumerate(cluster_centers):
+            color = center[2:5]  # r, g, b
+            segmented_img[clustered == idx] = color
+
+        # Reshape to original image shape
+        segmented_img = segmented_img.reshape((height, width, 3)).astype(np.uint8)
+        self.current_image = segmented_img
+        self.update_image_display()
+
+
+    def applyAgglomerativeClustering(self):
+        if self.current_image is None:
+            return
+        
+        target_clusters = self.clusters_num_spinbox.value()
+        
+        if len(self.original_image.shape) == 2:
+            image = cv2.cvtColor(self.original_image.copy(), cv2.COLOR_GRAY2BGR)
+        else:
+            image = self.original_image.copy()
+
+        height = image.shape[0]
+        width = image.shape[1]
+
+        # Flatten image to a list of RGB points
+        flat_img = image.reshape((-1, 3)).astype(np.float32)
+
+        # Initially, each pixel is its own cluster
+        clusters = [[i] for i in range(len(flat_img))]
+        cluster_means = flat_img.copy()
+
+        def euclidean(c1, c2):
+            return np.linalg.norm(cluster_means[c1] - cluster_means[c2])
+        
+        # Create a distance matrix for all pairs of clusters
+        distance_matrix = np.zeros((len(flat_img), len(flat_img)))
+        for i in range(len(flat_img)):
+            for j in range(i + 1, len(flat_img)):
+                dist = euclidean(i, j)
+                distance_matrix[i, j] = dist
+                distance_matrix[j, i] = dist
+
+        while len(clusters) > target_clusters:
+            min_dist = float('inf')
+            to_merge = (0, 1)
+
+            # Brute-force find the pair of clusters with smallest mean color distance
+            for i in range(len(clusters)):
+                for j in range(i + 1, len(clusters)):
+                    dist = distance_matrix[i, j]
+                    if dist < min_dist:
+                        min_dist = dist
+                        to_merge = (i, j)
+
+            i, j = to_merge
+
+            # Merge j into i
+            clusters[i].extend(clusters[j])
+            del clusters[j]
+
+            # Update cluster mean
+            cluster_means[i] = np.mean(flat_img[clusters[i]], axis=0)
+            del cluster_means[j]
+
+            # Update distance matrix to reflect the merge
+            for k in range(len(distance_matrix)):
+                if k != i and k != j:
+                    # Update distances from the new cluster (i) to all other clusters
+                    distance_matrix[i, k] = min(distance_matrix[i, k], distance_matrix[j, k])
+                    distance_matrix[k, i] = distance_matrix[i, k]
+            
+            # Remove the row and column corresponding to the merged cluster (j)
+            distance_matrix = np.delete(distance_matrix, j, axis=0)
+            distance_matrix = np.delete(distance_matrix, j, axis=1)
+
+        # Assign cluster colors
+        segmented_img = np.zeros_like(flat_img)
+        for idx, cluster in enumerate(clusters):
+            color = np.uint8(cluster_means[idx])
+            for pixel_index in cluster:
+                segmented_img[pixel_index] = color
+
+        # Reshape back to image
+        segmented_img = segmented_img.reshape((height, width, 3))
+        self.current_image = segmented_img
+        self.update_image_display()
+
     def _apply_and_update_image(self, func, *args):
             if self.current_image is not None:
                 self.current_image = func(self.current_image, *args)
                 self.update_image_display()
-
-
 
 
     def _update_low_threshold_label(self, value):
