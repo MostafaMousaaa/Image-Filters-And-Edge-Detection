@@ -2,7 +2,8 @@ from PyQt6.QtWidgets import (QMainWindow, QFileDialog, QVBoxLayout, QWidget,
                             QHBoxLayout, QDockWidget, QTabWidget, QToolBar, QLabel, 
                             QComboBox, QSlider, QPushButton, QApplication, QGroupBox,
                             QSpinBox, QDoubleSpinBox, QRadioButton, QButtonGroup,
-                            QSplitter, QFrame, QMessageBox, QToolButton, QStatusBar, QSizePolicy, QCheckBox)
+                            QSplitter, QFrame, QMessageBox, QToolButton, QStatusBar, 
+                            QSizePolicy, QCheckBox, QGridLayout)
 from PyQt6.QtGui import QIcon, QPixmap, QImage, QAction, QFont, QKeySequence, QActionGroup
 from PyQt6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve, QSettings, pyqtSignal
 
@@ -29,6 +30,7 @@ from ..processing.hybrid_images import create_hybrid_image
 from ..processing.sift import generateSiftDescriptors, extract_sift_descriptors, match_descriptors, draw_matches
 from ..processing.extract_features import lambda_minus,Harris
 from ..processing.otsu import otsu_threshold
+from ..processing.Kmeans import kmeans_segmentation
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
 from src.ui.active_contour_panel import ActiveContourPanel
@@ -289,6 +291,9 @@ class MainWindow(QMainWindow):
         # Thresholding tab
         self.setup_threshold_tab()
         
+        # Optimal Thresholding tab
+        self.setup_optimal_threshold_tab()
+        
         # Frequency Domain tab
         self.setup_frequency_domain_tab()
         
@@ -304,6 +309,7 @@ class MainWindow(QMainWindow):
         self.setup_otsu_tab()
         self.setup_mean_shift_tab()
         self.setup_agglo_clustering_tab()
+        self.setup_kmeans_tab()
         
         # Set tab icons if available
         try:
@@ -617,6 +623,291 @@ class MainWindow(QMainWindow):
         threshold_layout.addStretch()
         
         self.sidebar.addTab(threshold_widget, "Thresholding")
+
+    def setup_optimal_threshold_tab(self):
+        optimal_threshold_widget = QWidget()
+        optimal_threshold_layout = QVBoxLayout(optimal_threshold_widget)
+        
+        # Add information label at the top
+        info_label = QLabel("Optimal thresholding techniques help find the ideal threshold automatically.")
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("font-style: italic; color: #666; padding: 5px;")
+        optimal_threshold_layout.addWidget(info_label)
+        
+        # Group box for thresholding method selection
+        method_group = QGroupBox("Thresholding Method")
+        method_group.setObjectName("paramGroupBox")
+        method_layout = QVBoxLayout()
+        
+        # Method selection
+        self.optimal_threshold_method = QButtonGroup()
+        self.iterative_radio = QRadioButton("Iterative Optimal Thresholding")
+        self.spectral_radio = QRadioButton("Spectral Thresholding")
+        self.iterative_radio.setToolTip("Finds threshold by iteratively averaging foreground and background means")
+        self.spectral_radio.setToolTip("Uses histogram valleys to find natural separations in pixel intensities")
+        
+        self.iterative_radio.setChecked(True)
+        self.optimal_threshold_method.addButton(self.iterative_radio, 0)
+        self.optimal_threshold_method.addButton(self.spectral_radio, 1)
+        
+        method_layout.addWidget(self.iterative_radio)
+        method_layout.addWidget(self.spectral_radio)
+        method_group.setLayout(method_layout)
+        optimal_threshold_layout.addWidget(method_group)
+        
+        # Add multi-level options for spectral thresholding
+        self.multi_level_group = QGroupBox("Multi-Level Options")
+        self.multi_level_group.setObjectName("paramGroupBox")
+        multi_level_layout = QVBoxLayout()
+        
+        # Output type options
+        self.output_type = QButtonGroup()
+        self.binary_output_radio = QRadioButton("Binary Output (2 Modes)")
+        self.multi_level_radio = QRadioButton("Multi-Level Output (Multiple Modes)")
+        self.binary_output_radio.setToolTip("Create a binary image with one threshold")
+        self.multi_level_radio.setToolTip("Create a multi-level image with multiple thresholds")
+        
+        self.binary_output_radio.setChecked(True)
+        self.output_type.addButton(self.binary_output_radio, 0)
+        self.output_type.addButton(self.multi_level_radio, 1)
+        
+        multi_level_layout.addWidget(self.binary_output_radio)
+        multi_level_layout.addWidget(self.multi_level_radio)
+        
+        # Number of levels/modes parameter
+        levels_layout = QHBoxLayout()
+        levels_label = QLabel("Number of Levels/Modes:")
+        levels_label.setObjectName("paramLabel")
+        levels_layout.addWidget(levels_label)
+        
+        self.num_levels = QSpinBox()
+        self.num_levels.setRange(2, 10)
+        self.num_levels.setValue(3)
+        self.num_levels.setEnabled(False)  # Initially disabled for binary output
+        levels_layout.addWidget(self.num_levels)
+        
+        multi_level_layout.addLayout(levels_layout)
+        self.multi_level_group.setLayout(multi_level_layout)
+        optimal_threshold_layout.addWidget(self.multi_level_group)
+        
+        # Connect multi-level radio buttons to enable/disable level selection
+        self.binary_output_radio.toggled.connect(lambda checked: self.num_levels.setEnabled(not checked))
+        
+        # Connect spectral/iterative radio buttons to show/hide multi-level options
+        self.spectral_radio.toggled.connect(self.multi_level_group.setVisible)
+        
+        # Initially hide multi-level options for iterative method
+        self.multi_level_group.setVisible(False)
+        
+        # Group box for scope selection (global vs local)
+        scope_group = QGroupBox("Thresholding Scope")
+        scope_group.setObjectName("paramGroupBox")
+        scope_layout = QVBoxLayout()
+        
+        self.optimal_threshold_scope = QButtonGroup()
+        self.global_scope_radio = QRadioButton("Global (Entire Image)")
+        self.local_scope_radio = QRadioButton("Local (Block-Based)")
+        self.global_scope_radio.setToolTip("Apply one threshold to the entire image")
+        self.local_scope_radio.setToolTip("Apply different thresholds to local regions of the image")
+        
+        self.global_scope_radio.setChecked(True)
+        self.optimal_threshold_scope.addButton(self.global_scope_radio, 0)
+        self.optimal_threshold_scope.addButton(self.local_scope_radio, 1)
+        
+        scope_layout.addWidget(self.global_scope_radio)
+        scope_layout.addWidget(self.local_scope_radio)
+        scope_group.setLayout(scope_layout)
+        optimal_threshold_layout.addWidget(scope_group)
+        
+        # Parameters for Local thresholding
+        self.local_params_container = QGroupBox("Local Parameters")
+        self.local_params_container.setObjectName("paramGroupBox")
+        local_params_layout = QVBoxLayout()
+        
+        block_size_layout = QHBoxLayout()
+        block_size_label = QLabel("Block Size:")
+        block_size_label.setObjectName("paramLabel")
+        block_size_layout.addWidget(block_size_label)
+        
+        self.optimal_block_size = QSpinBox()
+        self.optimal_block_size.setRange(3, 99)
+        self.optimal_block_size.setSingleStep(2)  # Ensure odd numbers
+        self.optimal_block_size.setValue(21)
+        self.optimal_block_size.setObjectName("paramSpinBox")
+        block_size_layout.addWidget(self.optimal_block_size)
+        
+        local_params_layout.addLayout(block_size_layout)
+        self.local_params_container.setLayout(local_params_layout)
+        optimal_threshold_layout.addWidget(self.local_params_container)
+        self.local_params_container.hide()  # Initially hidden
+        
+        # Statistics group for global thresholding results
+        self.global_stats_group = QGroupBox("Thresholding Results")
+        self.global_stats_group.setObjectName("statsGroupBox")
+        global_stats_layout = QGridLayout()
+        
+        threshold_value_label = QLabel("Computed Threshold:")
+        threshold_value_label.setObjectName("statsLabel")
+        self.threshold_value = QLabel("--")
+        self.threshold_value.setObjectName("statsValue")
+        
+        pixels_above_label = QLabel("Pixels Above Threshold:")
+        pixels_above_label.setObjectName("statsLabel")
+        self.pixels_above = QLabel("--")
+        self.pixels_above.setObjectName("statsValue")
+        
+        global_stats_layout.addWidget(threshold_value_label, 0, 0)
+        global_stats_layout.addWidget(self.threshold_value, 0, 1)
+        global_stats_layout.addWidget(pixels_above_label, 1, 0)
+        global_stats_layout.addWidget(self.pixels_above, 1, 1)
+        
+        self.global_stats_group.setLayout(global_stats_layout)
+        optimal_threshold_layout.addWidget(self.global_stats_group)
+        
+        # Apply button
+        apply_container = QGroupBox("Apply Thresholding")
+        apply_container.setObjectName("actionGroupBox")
+        apply_layout = QVBoxLayout()
+        
+        apply_optimal_threshold_button = QPushButton("Apply Thresholding")
+        apply_optimal_threshold_button.setObjectName("actionButton")
+        apply_optimal_threshold_button.clicked.connect(self.apply_optimal_thresholding)
+        apply_layout.addWidget(apply_optimal_threshold_button)
+        
+        apply_container.setLayout(apply_layout)
+        optimal_threshold_layout.addWidget(apply_container)
+        
+        # Add stretch to push everything up
+        optimal_threshold_layout.addStretch()
+        
+        # Connect signals
+        self.global_scope_radio.toggled.connect(self.update_optimal_threshold_params)
+        
+        self.sidebar.addTab(optimal_threshold_widget, "Optimal Thresholding")
+        
+        # Add some custom styling for this tab
+        optimal_threshold_widget.setStyleSheet("""
+            QGroupBox#statsGroupBox {
+                background-color: #f5f5f5;
+                border: 1px solid #dcdcdc;
+                border-radius: 5px;
+                padding: 10px;
+            }
+            QLabel#statsLabel {
+                font-weight: bold;
+                color: #444;
+            }
+            QLabel#statsValue {
+                color: #0066cc;
+                font-weight: bold;
+                font-family: monospace;
+            }
+        """)
+
+    def update_optimal_threshold_params(self):
+        """Show/hide optimal thresholding parameters based on selected type"""
+        is_local = self.optimal_threshold_scope.checkedId() == 1
+        self.local_params_container.setVisible(is_local)
+        self.global_stats_group.setVisible(not is_local)
+
+    def apply_optimal_thresholding(self):
+        """Apply optimal thresholding to the current image"""
+        if self.current_image is None:
+            self.show_status_message("No image loaded", 3000)
+            return
+        
+        # Convert to grayscale if needed
+        if len(self.current_image.shape) == 3:
+            gray_image = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray_image = self.current_image.copy()
+        
+        try:
+            # Get thresholding method and scope
+            is_iterative = self.optimal_threshold_method.checkedId() == 0
+            is_global = self.optimal_threshold_scope.checkedId() == 0
+            is_binary = self.output_type.checkedId() == 0
+            num_levels = self.num_levels.value()
+            
+            # Import the module
+            from src.processing.Optimalthresholding import (
+                global_optimal_iterative_thresholding, 
+                local_optimal_iterative_thresholding,
+                global_spectral_thresholding,
+                local_spectral_thresholding,
+                multi_level_spectral_segmentation,
+                local_multi_level_segmentation
+            )
+            
+            # Apply the selected thresholding method
+            if is_iterative:
+                # Iterative thresholding doesn't support multi-level output
+                if is_global:
+                    # Global iterative optimal thresholding
+                    threshold, result, pixels_above = global_optimal_iterative_thresholding(gray_image)
+                    method_name = "Global Iterative Optimal"
+                    
+                    # Update statistics display
+                    self.threshold_value.setText(f"{threshold}")
+                    self.pixels_above.setText(f"{pixels_above} ({(pixels_above/gray_image.size)*100:.1f}%)")
+                else:
+                    # Get block size parameter
+                    block_size = self.optimal_block_size.value()
+                    
+                    # Local iterative optimal thresholding
+                    result = local_optimal_iterative_thresholding(gray_image, block_size)
+                    method_name = "Local Iterative Optimal"
+            else:
+                # Spectral thresholding
+                if is_global:
+                    if is_binary:
+                        # Global binary spectral thresholding
+                        thresholds, result, pixels_above = global_spectral_thresholding(gray_image, 1)
+                        method_name = "Global Spectral"
+                        
+                        # Update statistics display
+                        self.threshold_value.setText(f"{thresholds[0] if thresholds else 'N/A'}")
+                        self.pixels_above.setText(f"{pixels_above} ({(pixels_above/gray_image.size)*100:.1f}%)")
+                    else:
+                        # Global multi-level spectral segmentation
+                        result = multi_level_spectral_segmentation(gray_image, num_levels)
+                        method_name = f"Global Multi-Level Spectral ({num_levels} modes)"
+                else:
+                    # Get block size parameter
+                    block_size = self.optimal_block_size.value()
+                    
+                    if is_binary:
+                        # Local binary spectral thresholding
+                        result = local_spectral_thresholding(gray_image, block_size, 1)
+                        method_name = "Local Spectral"
+                    else:
+                        # Local multi-level spectral segmentation
+                        result = local_multi_level_segmentation(gray_image, block_size, num_levels)
+                        method_name = f"Local Multi-Level Spectral ({num_levels} modes)"
+            
+            # Update the image
+            if len(self.current_image.shape) == 3:
+                # Convert result image to 3-channel for display
+                self.current_image = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
+            else:
+                self.current_image = result
+
+            self.update_image_display()    
+            
+            # Show status message
+            if is_global and is_iterative:
+                self.show_status_message(f"Applied {method_name} thresholding with threshold {threshold}", 3000)
+            elif is_global and not is_iterative and is_binary:
+                threshold_str = f"{thresholds[0]}" if thresholds else "N/A"
+                self.show_status_message(f"Applied {method_name} thresholding with threshold {threshold_str}", 3000)
+            elif is_global and not is_binary:
+                self.show_status_message(f"Applied {method_name} with {num_levels} modes", 3000)
+            else:
+                self.show_status_message(f"Applied {method_name} thresholding with block size {block_size}", 3000)
+                
+        except Exception as e:
+            self.show_status_message(f"Error applying optimal thresholding: {str(e)}", 5000)
+            print(f"Error details: {str(e)}")
 
     def setup_frequency_domain_tab(self):
         freq_widget = QWidget()
@@ -1516,6 +1807,63 @@ class MainWindow(QMainWindow):
         
         self.sidebar.addTab(agglo_widget, "Agglomerative Clustering")
 
+    def setup_kmeans_tab(self):
+        kmeans_widget = QWidget()
+        kmeans_layout = QVBoxLayout(kmeans_widget)
+        
+        # Group box for K-means clustering
+        kmeans_group = QGroupBox("K-means Clustering")
+        kmeans_group.setObjectName("paramGroupBox")
+        kmeans_inner_layout = QVBoxLayout()
+        
+        # Information label
+        info_label = QLabel("K-means clustering segments the image into K clusters based on pixel values.")
+        info_label.setWordWrap(True)
+        info_label.setObjectName("infoLabel")
+        kmeans_inner_layout.addWidget(info_label)
+        
+        # Number of clusters parameter
+        clusters_layout = QHBoxLayout()
+        clusters_label = QLabel("Number of Clusters (K):")
+        clusters_label.setObjectName("paramLabel")
+        clusters_layout.addWidget(clusters_label)
+        
+        self.kmeans_clusters = QSpinBox()
+        self.kmeans_clusters.setRange(2, 10)
+        self.kmeans_clusters.setValue(3)
+        self.kmeans_clusters.setObjectName("paramSpinBox")
+        clusters_layout.addWidget(self.kmeans_clusters)
+        kmeans_inner_layout.addLayout(clusters_layout)
+        
+        # Number of iterations parameter
+        iterations_layout = QHBoxLayout()
+        iterations_label = QLabel("Number of Iterations:")
+        iterations_label.setObjectName("paramLabel")
+        iterations_layout.addWidget(iterations_label)
+        
+        self.kmeans_iterations = QSpinBox()
+        self.kmeans_iterations.setRange(1, 100)
+        self.kmeans_iterations.setValue(10)
+        self.kmeans_iterations.setObjectName("paramSpinBox")
+        iterations_layout.addWidget(self.kmeans_iterations)
+        kmeans_inner_layout.addLayout(iterations_layout)
+        
+        # Apply button
+        apply_kmeans_button = QPushButton("Apply K-means")
+        apply_kmeans_button.setObjectName("actionButton")
+        apply_kmeans_button.clicked.connect(self.apply_kmeans)
+        kmeans_inner_layout.addWidget(apply_kmeans_button)
+        
+        kmeans_group.setLayout(kmeans_inner_layout)
+        kmeans_layout.addWidget(kmeans_group)
+        
+        # Add stretch to push everything up
+        kmeans_layout.addStretch()
+        
+        self.sidebar.addTab(kmeans_widget        , "K-means")
+
+
+    
     
     def applyMeanShift(self):
         if self.current_image is None:
@@ -1880,11 +2228,11 @@ class MainWindow(QMainWindow):
             rgb_image = cv2.cvtColor(self.current_image, cv2.COLOR_BGR2RGB)
             height, width, channels = rgb_image.shape
             bytes_per_line = channels * width
-            q_image = QImage(rgb_image.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
+            q_image = QImage(rgb_image.data.tobytes(), width, height, bytes_per_line, QImage.Format.Format_RGB888)
         else:
             # Grayscale image
             height, width = self.current_image.shape
-            q_image = QImage(self.current_image.data, width, height, width, QImage.Format.Format_Grayscale8)
+            q_image = QImage(self.current_image.data.tobytes(), width, height, width, QImage.Format.Format_Grayscale8)
         
         self.image_display.set_image(QPixmap.fromImage(q_image))
         self.update_histogram()
@@ -2070,6 +2418,10 @@ class MainWindow(QMainWindow):
         if file_name:
             try:
                 image = load_image(file_name)
+                if self.original_first_image is None and image_number == 1:
+                    self.original_first_image = image
+                if self.original_second_image is None and image_number == 2:
+                    self.original_second_image = image
                 if image is None:
                     self.show_error_message(f"Failed to load image: {file_name}")
                     return
@@ -2077,12 +2429,10 @@ class MainWindow(QMainWindow):
                 
                 # Set the image in the dual view
                 if image_number == 1:
-                    self.original_first_image = None
                     self.first_image = image
                     self.dual_image_view.set_first_image(image)
                     self.show_status_message(f"Loaded first image: {file_name}", 3000)
                 else:
-                    self.original_second_image = None
                     self.second_image = image
                     self.dual_image_view.set_second_image(image)
                     self.show_status_message(f"Loaded second image: {file_name}", 3000)
@@ -2377,7 +2727,7 @@ class MainWindow(QMainWindow):
                         # circle center
                         a = int(x - r * np.cos(np.deg2rad(theta)))
                         b = int(y - r * np.sin(np.deg2rad(theta)))
-                        
+
                         if 0 <= a < height and 0 <= b < width:
                             accumulator[a, b, r - self.min_radius.value()] += 1 # r is minus min_radius as index starts from 0
             
@@ -2737,6 +3087,26 @@ class MainWindow(QMainWindow):
         self.current_image = thresholded_img
         self.update_image_display()
         self.statusBar().showMessage(f"Applied Otsu thresholding (threshold={optimal_threshold_value})")
+
+    def apply_kmeans(self):
+        if self.current_image is None:
+            self.statusBar().showMessage("No image loaded")
+            return
+        
+        # Get parameters
+        k = self.kmeans_clusters.value()  # number of clusters
+        iterations = self.kmeans_iterations.value()  # number of iterations
+        
+        # Convert image to appropriate format for K-means
+        image = self.current_image.copy()
+        
+        segmented_image = kmeans_segmentation(image, k, iterations)
+        
+        # Update the current image
+        self.current_image = segmented_image
+        self.update_image_display()
+        
+        self.statusBar().showMessage(f"Applied K-means clustering with {k} clusters and {iterations} iterations")
 
    
 def main():
