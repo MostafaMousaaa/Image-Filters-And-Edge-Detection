@@ -153,9 +153,7 @@ def global_spectral_thresholding(input_img: np.ndarray, num_thresholds: int = 1)
     
     # If no valleys found, use the otsu method as fallback
     if len(peaks) == 0:
-        thresh, binary_img = cv2.threshold(input_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        pixels_above = np.sum(binary_img > 0)
-        return [int(thresh)], binary_img, pixels_above
+        print("No valleys found")
     
     # Evaluate the "deepness" of each valley by its neighboring peaks
     valley_scores = []
