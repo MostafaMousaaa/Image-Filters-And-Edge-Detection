@@ -54,8 +54,8 @@ def load_image():
         seed = (image.shape[0] // 2, image.shape[1] // 2)
         update(None)
 
-Original = cv2.cvtColor(cv2.imread('brain2.jpeg'), cv2.COLOR_BGR2RGB)
-image = cv2.imread('brain2.jpeg', cv2.IMREAD_GRAYSCALE)
+Original = cv2.cvtColor(cv2.imread('D:\\0SBME26\\3Year\\2Term\\3-Computer Vision\\Tasks\\Task4\\Image-Filters-And-Edge-Detection\\harris\\brain2.jpeg'), cv2.COLOR_BGR2RGB)
+image = cv2.imread('D:\\0SBME26\\3Year\\2Term\\3-Computer Vision\\Tasks\\Task4\\Image-Filters-And-Edge-Detection\\harris\\brain2.jpeg', cv2.IMREAD_GRAYSCALE)
 seed  = (52, 70)
 
 initial_threshold = 0

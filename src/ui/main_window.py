@@ -8,7 +8,7 @@ from PyQt6.QtGui import QIcon, QPixmap, QImage, QAction, QFont, QKeySequence, QA
 from PyQt6.QtCore import Qt, QSize, QTimer, QPropertyAnimation, QEasingCurve, QSettings, pyqtSignal
 
 import cv2
-from sklearn.cluster import AgglomerativeClustering
+# from sklearn.cluster import AgglomerativeClustering
 import numpy as np
 import sys
 import os
@@ -1988,6 +1988,8 @@ class MainWindow(QMainWindow):
         else:
             image = self.original_image.copy()
 
+        image = cv2.resize(image, (20, 20))  # Resize for faster processing
+
         height = image.shape[0]
         width = image.shape[1]
 
@@ -2025,12 +2027,11 @@ class MainWindow(QMainWindow):
 
             # Merge j into i
             clusters[i].extend(clusters[j])
-            del clusters[j]
+            clusters.pop(j)
 
             # Update cluster mean
             cluster_means[i] = np.mean(flat_img[clusters[i]], axis=0)
-            del cluster_means[j]
-
+            cluster_means = np.delete(cluster_means, j, axis=0)
             # Update distance matrix to reflect the merge
             for k in range(len(distance_matrix)):
                 if k != i and k != j:
@@ -2051,6 +2052,7 @@ class MainWindow(QMainWindow):
 
         # Reshape back to image
         segmented_img = segmented_img.reshape((height, width, 3))
+        segmented_img = cv2.resize(segmented_img, (self.original_image.shape[1], self.original_image.shape[0]))
         self.current_image = segmented_img
         self.update_image_display()
 
@@ -2235,7 +2237,7 @@ class MainWindow(QMainWindow):
             q_image = QImage(self.current_image.data.tobytes(), width, height, width, QImage.Format.Format_Grayscale8)
         
         self.image_display.set_image(QPixmap.fromImage(q_image))
-        self.update_histogram()
+        #self.update_histogram()
 
     def update_histogram(self):
         if self.current_image is not None:
