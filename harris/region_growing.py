@@ -58,7 +58,7 @@ Original = cv2.cvtColor(cv2.imread('brain2.jpeg'), cv2.COLOR_BGR2RGB)
 image = cv2.imread('brain2.jpeg', cv2.IMREAD_GRAYSCALE)
 seed  = (52, 70)
 
-initial_threshold = 200
+initial_threshold = 0
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
 plt.subplots_adjust(bottom=0.25)
