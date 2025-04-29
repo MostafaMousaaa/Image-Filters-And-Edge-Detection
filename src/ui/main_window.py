@@ -1501,7 +1501,7 @@ class MainWindow(QMainWindow):
         # Stop After Reaching How Many Clusters
         clusters_num_label = QLabel("Number Of Clusters:")
         self.clusters_num_spinbox = QSpinBox()
-        self.clusters_num_spinbox.setRange(2, 10)
+        self.clusters_num_spinbox.setRange(2, 100)
         self.clusters_num_spinbox.setValue(3)
         agglo_layout.addWidget(clusters_num_label)
         agglo_layout.addWidget(self.clusters_num_spinbox)
@@ -1520,6 +1520,8 @@ class MainWindow(QMainWindow):
     def applyMeanShift(self):
         if self.current_image is None:
             return
+        mean_shift_start_time = cv2.getTickCount()  # starting timer for computing mean shift time
+
         if len(self.original_image.shape) == 2:
             image = cv2.cvtColor(self.original_image.copy(), cv2.COLOR_GRAY2BGR)
         else:
@@ -1626,6 +1628,11 @@ class MainWindow(QMainWindow):
         # Reshape to original image shape
         segmented_img = segmented_img.reshape((height, width, 3)).astype(np.uint8)
         self.current_image = segmented_img
+
+        mean_shift_end_time = cv2.getTickCount() # ending timer
+        mean_shift_time = (mean_shift_end_time - mean_shift_start_time) / cv2.getTickFrequency()
+        print(f"mean-shift time: {mean_shift_time} seconds")
+
         self.update_image_display()
 
 
@@ -1633,12 +1640,16 @@ class MainWindow(QMainWindow):
         if self.current_image is None:
             return
         
+        agglo_start_time = cv2.getTickCount()  # starting timer for computing agglomerative time
+
         target_clusters = self.clusters_num_spinbox.value()
         
         if len(self.original_image.shape) == 2:
-            image = cv2.cvtColor(self.original_image.copy(), cv2.COLOR_GRAY2BGR)
+            currImage = cv2.cvtColor(self.original_image.copy(), cv2.COLOR_GRAY2BGR)
         else:
-            image = self.original_image.copy()
+            currImage = self.original_image.copy()
+
+        image = cv2.resize(currImage, (20, 20), interpolation=cv2.INTER_AREA)
 
         height = image.shape[0]
         width = image.shape[1]
@@ -1648,13 +1659,13 @@ class MainWindow(QMainWindow):
 
         # Initially, each pixel is its own cluster
         clusters = [[i] for i in range(len(flat_img))]
-        cluster_means = flat_img.copy()
+        cluster_means = [flat_img[i].copy() for i in range(len(flat_img))]
 
         def euclidean(c1, c2):
             return np.linalg.norm(cluster_means[c1] - cluster_means[c2])
         
         # Create a distance matrix for all pairs of clusters
-        distance_matrix = np.zeros((len(flat_img), len(flat_img)))
+        distance_matrix = np.zeros((len(flat_img), len(flat_img)), dtype=np.float32)
         for i in range(len(flat_img)):
             for j in range(i + 1, len(flat_img)):
                 dist = euclidean(i, j)
@@ -1680,7 +1691,8 @@ class MainWindow(QMainWindow):
             del clusters[j]
 
             # Update cluster mean
-            cluster_means[i] = np.mean(flat_img[clusters[i]], axis=0)
+            pts = np.array(clusters[i])
+            cluster_means[i] = flat_img[pts].mean(axis=0)
             del cluster_means[j]
 
             # Update distance matrix to reflect the merge
@@ -1695,15 +1707,19 @@ class MainWindow(QMainWindow):
             distance_matrix = np.delete(distance_matrix, j, axis=1)
 
         # Assign cluster colors
-        segmented_img = np.zeros_like(flat_img)
+        segmented_img = np.zeros((len(flat_img), 3), dtype=np.uint8)
         for idx, cluster in enumerate(clusters):
             color = np.uint8(cluster_means[idx])
-            for pixel_index in cluster:
-                segmented_img[pixel_index] = color
+            segmented_img[cluster] = color
 
         # Reshape back to image
-        segmented_img = segmented_img.reshape((height, width, 3))
-        self.current_image = segmented_img
+        small_segmented_img = segmented_img.reshape((height, width, 3))
+        self.current_image = cv2.resize(small_segmented_img, (self.original_image.shape[1], self.original_image.shape[0]), interpolation=cv2.INTER_NEAREST)
+
+        agglo_end_time = cv2.getTickCount() # ending timer
+        agglo_time = (agglo_end_time - agglo_start_time) / cv2.getTickFrequency()
+        print(f"Agglomerative Clustering Time: {agglo_time} seconds")
+
         self.update_image_display()
 
     def _apply_and_update_image(self, func, *args):
