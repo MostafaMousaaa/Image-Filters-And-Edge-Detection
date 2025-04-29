@@ -29,6 +29,7 @@ from ..processing.hybrid_images import create_hybrid_image
 from ..processing.sift import generateSiftDescriptors, extract_sift_descriptors, match_descriptors, draw_matches
 from ..processing.extract_features import lambda_minus,Harris
 from ..processing.otsu import otsu_threshold
+from ..processing.Kmeans import kmeans_segmentation
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
 from src.ui.active_contour_panel import ActiveContourPanel
@@ -2852,28 +2853,13 @@ class MainWindow(QMainWindow):
             return
         
         # Get parameters
-        k = self.kmeans_clusters.value()
-        iterations = self.kmeans_iterations.value()
+        k = self.kmeans_clusters.value()  # number of clusters
+        iterations = self.kmeans_iterations.value()  # number of iterations
         
         # Convert image to appropriate format for K-means
         image = self.current_image.copy()
         
-        # Reshape the image to a 2D array of pixels
-        pixels = image.reshape((-1, 3)) if len(image.shape) == 3 else image.reshape((-1, 1))
-        pixels = np.float32(pixels)
-        
-        # Define criteria and apply K-means
-        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, iterations, 1.0)
-        _, labels, centers = cv2.kmeans(pixels, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
-        
-        # Convert back to 8-bit values
-        centers = np.uint8(centers)
-        
-        # Map labels to center values
-        segmented_image = centers[labels.flatten()]
-        
-        # Reshape back to the original image shape
-        segmented_image = segmented_image.reshape(image.shape)
+        segmented_image = kmeans_segmentation(image, k, iterations)
         
         # Update the current image
         self.current_image = segmented_image
