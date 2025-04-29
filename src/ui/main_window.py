@@ -651,6 +651,50 @@ class MainWindow(QMainWindow):
         method_group.setLayout(method_layout)
         optimal_threshold_layout.addWidget(method_group)
         
+        # Add multi-level options for spectral thresholding
+        self.multi_level_group = QGroupBox("Multi-Level Options")
+        self.multi_level_group.setObjectName("paramGroupBox")
+        multi_level_layout = QVBoxLayout()
+        
+        # Output type options
+        self.output_type = QButtonGroup()
+        self.binary_output_radio = QRadioButton("Binary Output (2 Modes)")
+        self.multi_level_radio = QRadioButton("Multi-Level Output (Multiple Modes)")
+        self.binary_output_radio.setToolTip("Create a binary image with one threshold")
+        self.multi_level_radio.setToolTip("Create a multi-level image with multiple thresholds")
+        
+        self.binary_output_radio.setChecked(True)
+        self.output_type.addButton(self.binary_output_radio, 0)
+        self.output_type.addButton(self.multi_level_radio, 1)
+        
+        multi_level_layout.addWidget(self.binary_output_radio)
+        multi_level_layout.addWidget(self.multi_level_radio)
+        
+        # Number of levels/modes parameter
+        levels_layout = QHBoxLayout()
+        levels_label = QLabel("Number of Levels/Modes:")
+        levels_label.setObjectName("paramLabel")
+        levels_layout.addWidget(levels_label)
+        
+        self.num_levels = QSpinBox()
+        self.num_levels.setRange(2, 10)
+        self.num_levels.setValue(3)
+        self.num_levels.setEnabled(False)  # Initially disabled for binary output
+        levels_layout.addWidget(self.num_levels)
+        
+        multi_level_layout.addLayout(levels_layout)
+        self.multi_level_group.setLayout(multi_level_layout)
+        optimal_threshold_layout.addWidget(self.multi_level_group)
+        
+        # Connect multi-level radio buttons to enable/disable level selection
+        self.binary_output_radio.toggled.connect(lambda checked: self.num_levels.setEnabled(not checked))
+        
+        # Connect spectral/iterative radio buttons to show/hide multi-level options
+        self.spectral_radio.toggled.connect(self.multi_level_group.setVisible)
+        
+        # Initially hide multi-level options for iterative method
+        self.multi_level_group.setVisible(False)
+        
         # Group box for scope selection (global vs local)
         scope_group = QGroupBox("Thresholding Scope")
         scope_group.setObjectName("paramGroupBox")
@@ -778,54 +822,82 @@ class MainWindow(QMainWindow):
             # Get thresholding method and scope
             is_iterative = self.optimal_threshold_method.checkedId() == 0
             is_global = self.optimal_threshold_scope.checkedId() == 0
+            is_binary = self.output_type.checkedId() == 0
+            num_levels = self.num_levels.value()
             
             # Import the module
             from src.processing.Optimalthresholding import (
                 global_optimal_iterative_thresholding, 
                 local_optimal_iterative_thresholding,
                 global_spectral_thresholding,
-                local_spectral_thresholding
+                local_spectral_thresholding,
+                multi_level_spectral_segmentation,
+                local_multi_level_segmentation
             )
             
             # Apply the selected thresholding method
-            if is_global:
-                if is_iterative:
+            if is_iterative:
+                # Iterative thresholding doesn't support multi-level output
+                if is_global:
                     # Global iterative optimal thresholding
                     threshold, result, pixels_above = global_optimal_iterative_thresholding(gray_image)
                     method_name = "Global Iterative Optimal"
+                    
+                    # Update statistics display
+                    self.threshold_value.setText(f"{threshold}")
+                    self.pixels_above.setText(f"{pixels_above} ({(pixels_above/gray_image.size)*100:.1f}%)")
                 else:
-                    # Global spectral thresholding
-                    threshold, result, pixels_above = global_spectral_thresholding(gray_image)
-                    method_name = "Global Spectral"
-                
-                # Update statistics display
-                self.threshold_value.setText(f"{threshold}")
-                self.pixels_above.setText(f"{pixels_above} ({(pixels_above/gray_image.size)*100:.1f}%)")
-            else:
-                # Get block size parameter
-                block_size = self.optimal_block_size.value()
-                
-                if is_iterative:
+                    # Get block size parameter
+                    block_size = self.optimal_block_size.value()
+                    
                     # Local iterative optimal thresholding
                     result = local_optimal_iterative_thresholding(gray_image, block_size)
                     method_name = "Local Iterative Optimal"
+            else:
+                # Spectral thresholding
+                if is_global:
+                    if is_binary:
+                        # Global binary spectral thresholding
+                        thresholds, result, pixels_above = global_spectral_thresholding(gray_image, 1)
+                        method_name = "Global Spectral"
+                        
+                        # Update statistics display
+                        self.threshold_value.setText(f"{thresholds[0] if thresholds else 'N/A'}")
+                        self.pixels_above.setText(f"{pixels_above} ({(pixels_above/gray_image.size)*100:.1f}%)")
+                    else:
+                        # Global multi-level spectral segmentation
+                        result = multi_level_spectral_segmentation(gray_image, num_levels)
+                        method_name = f"Global Multi-Level Spectral ({num_levels} modes)"
                 else:
-                    # Local spectral thresholding
-                    result = local_spectral_thresholding(gray_image, block_size)
-                    method_name = "Local Spectral"
+                    # Get block size parameter
+                    block_size = self.optimal_block_size.value()
+                    
+                    if is_binary:
+                        # Local binary spectral thresholding
+                        result = local_spectral_thresholding(gray_image, block_size, 1)
+                        method_name = "Local Spectral"
+                    else:
+                        # Local multi-level spectral segmentation
+                        result = local_multi_level_segmentation(gray_image, block_size, num_levels)
+                        method_name = f"Local Multi-Level Spectral ({num_levels} modes)"
             
             # Update the image
             if len(self.current_image.shape) == 3:
-                # Convert binary image to 3-channel for display
-                self.current_image=(cv2.cvtColor(result, cv2.COLOR_GRAY2BGR))
+                # Convert result image to 3-channel for display
+                self.current_image = cv2.cvtColor(result, cv2.COLOR_GRAY2BGR)
             else:
-                self.current_image=(result)
+                self.current_image = result
 
             self.update_image_display()    
             
             # Show status message
-            if is_global:
+            if is_global and is_iterative:
                 self.show_status_message(f"Applied {method_name} thresholding with threshold {threshold}", 3000)
+            elif is_global and not is_iterative and is_binary:
+                threshold_str = f"{thresholds[0]}" if thresholds else "N/A"
+                self.show_status_message(f"Applied {method_name} thresholding with threshold {threshold_str}", 3000)
+            elif is_global and not is_binary:
+                self.show_status_message(f"Applied {method_name} with {num_levels} modes", 3000)
             else:
                 self.show_status_message(f"Applied {method_name} thresholding with block size {block_size}", 3000)
                 
@@ -1733,7 +1805,7 @@ class MainWindow(QMainWindow):
         # Add stretch to push everything up
         kmeans_layout.addStretch()
         
-        self.sidebar.addTab(kmeans_widget, "K-means")
+        self.sidebar.addTab(kmeans_widget        , "K-means")
 
 
     
