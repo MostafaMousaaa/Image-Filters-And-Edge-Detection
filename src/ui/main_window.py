@@ -2041,15 +2041,10 @@ class MainWindow(QMainWindow):
             clusters.pop(j)
 
             # Update cluster mean
-<<<<<<< HEAD
-            cluster_means[i] = np.mean(flat_img[clusters[i]], axis=0)
-            cluster_means = np.delete(cluster_means, j, axis=0)
-=======
             pts = np.array(clusters[i])
             cluster_means[i] = flat_img[pts].mean(axis=0)
             del cluster_means[j]
 
->>>>>>> e14bb3a1f7cd6a5ec0fb495646ce35ad0fc4402e
             # Update distance matrix to reflect the merge
             for k in range(len(distance_matrix)):
                 if k != i and k != j:
@@ -2068,11 +2063,6 @@ class MainWindow(QMainWindow):
             segmented_img[cluster] = color
 
         # Reshape back to image
-<<<<<<< HEAD
-        segmented_img = segmented_img.reshape((height, width, 3))
-        segmented_img = cv2.resize(segmented_img, (self.original_image.shape[1], self.original_image.shape[0]))
-        self.current_image = segmented_img
-=======
         small_segmented_img = segmented_img.reshape((height, width, 3))
         self.current_image = cv2.resize(small_segmented_img, (self.original_image.shape[1], self.original_image.shape[0]), interpolation=cv2.INTER_NEAREST)
 
@@ -2080,7 +2070,6 @@ class MainWindow(QMainWindow):
         agglo_time = (agglo_end_time - agglo_start_time) / cv2.getTickFrequency()
         print(f"Agglomerative Clustering Time: {agglo_time} seconds")
 
->>>>>>> e14bb3a1f7cd6a5ec0fb495646ce35ad0fc4402e
         self.update_image_display()
 
     def _apply_and_update_image(self, func, *args):
