@@ -310,6 +310,7 @@ class MainWindow(QMainWindow):
         self.setup_mean_shift_tab()
         self.setup_agglo_clustering_tab()
         self.setup_kmeans_tab()
+        self.setup_face_detection_tab()
         
         # Set tab icons if available
         try:
@@ -1861,10 +1862,73 @@ class MainWindow(QMainWindow):
         kmeans_layout.addStretch()
         
         self.sidebar.addTab(kmeans_widget        , "K-means")
+    
+    def setup_face_detection_tab(self):
+        face_detection_widget = QWidget()
+        face_detection_layout = QVBoxLayout(face_detection_widget)
+
+        # Scales down image at each pass
+        scale_factor_label = QLabel("Scale Factor:")
+        self.scale_factor_spinbox = QDoubleSpinBox()
+        self.scale_factor_spinbox.setDecimals(2)
+        self.scale_factor_spinbox.setRange(1, 10)
+        self.scale_factor_spinbox.setSingleStep(0.01)
+        self.scale_factor_spinbox.setValue(1.1)
+        face_detection_layout.addWidget(scale_factor_label)
+        face_detection_layout.addWidget(self.scale_factor_spinbox)
+
+	    # Filters false positives
+        min_neigbhors_label = QLabel("Min Neighbors:")
+        self.min_neighbors_spinbox = QSpinBox()
+        self.min_neighbors_spinbox.setRange(1, 10)
+        self.min_neighbors_spinbox.setValue(5)
+        face_detection_layout.addWidget(min_neigbhors_label)
+        face_detection_layout.addWidget(self.min_neighbors_spinbox)
+
+        # Button to Print Values
+        submit_button_detect = QPushButton("Detect Faces")
+        submit_button_detect.clicked.connect(self.detectFaces)
+        face_detection_layout.addWidget(submit_button_detect)
+        
+        # Add stretch to push everything up
+        face_detection_layout.addStretch()
+        
+        self.sidebar.addTab(face_detection_widget, "Face Detection")
+    
+    def detectFaces(self):
+        if self.original_image is None:
+            return
+        
+        self.current_image = self.original_image.copy()
+        
+        # Converts image to grayscale if it was colored
+        if len(self.original_image.shape) == 3:
+            gray = cv2.cvtColor(self.original_image.copy(), cv2.COLOR_BGR2GRAY)
+        else:
+            gray = self.original_image.copy()
 
 
-    
-    
+        '''
+        To Detect Faces:
+        Loads pretrained Haar model which contains feature definitions and thresholds for faces vs non-faces
+        Resizes the image iteratively by scaleFactor (1.1 = 10% reduction per step).
+        A 24 x 24px window scans each resized image where at each position, the cascade evaluates whether the region contains a face
+        This is done by computing intensity differences between rectangular regions
+        Groups overlapping detections at the same face
+        Requires minNeighbors confirmations (number of neigbhors that vote for a face) to avoid false positive
+        Returns a list of (x, y, width, height) of detected faces
+        '''
+
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=self.scale_factor_spinbox.value(), minNeighbors=self.min_neighbors_spinbox.value())
+
+        # Draw squares around detected faces ((x, y): Top-left corner coordinates)
+        for (x, y, w, h) in faces:
+            side_length = max(w, h)  # Use the larger of width or height to make a square
+            cv2.rectangle(self.current_image, (x, y), (x + side_length, y + side_length), (0, 255, 0), 2) # Draw green square of thickness 2 around each face
+        
+        self.update_image_display()
+            
     def applyMeanShift(self):
         if self.current_image is None:
             return
