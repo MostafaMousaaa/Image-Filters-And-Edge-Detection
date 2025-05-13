@@ -2,8 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc, precision_recall_curve
 from sklearn.metrics import confusion_matrix, classification_report
-import cv2
-import os
+
 
 def calculate_roc_curve(y_true, y_scores):
     """

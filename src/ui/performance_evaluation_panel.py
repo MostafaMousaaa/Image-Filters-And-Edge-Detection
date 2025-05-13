@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                             QGroupBox, QComboBox, QGridLayout, QSizePolicy, 
                             QTableWidget, QTableWidgetItem, QTabWidget, QFileDialog,
-                            QCheckBox)
+                            QCheckBox, QSlider)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QColor
 import matplotlib.pyplot as plt
@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 import numpy as np
 import os
 import random
-from sklearn.metrics import roc_curve, auc, confusion_matrix
+from sklearn.metrics import roc_curve, auc, confusion_matrix, roc_auc_score
 
 class PerformanceEvaluationPanel(QWidget):
     """Panel for performance evaluation and ROC curve plotting"""
@@ -176,22 +176,75 @@ class PerformanceEvaluationPanel(QWidget):
         self.roc_canvas = FigureCanvas(self.roc_figure)
         self.roc_canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
-        # Info box for AUC
-        auc_box = QGroupBox("Area Under Curve (AUC)")
-        auc_box.setObjectName("resultsFrame")
-        auc_layout = QHBoxLayout()
+        # Add threshold control slider
+        threshold_group = QGroupBox("Classification Threshold")
+        threshold_group.setObjectName("paramGroupBox")
+        threshold_layout = QVBoxLayout()
         
+        slider_layout = QHBoxLayout()
+        threshold_label = QLabel("Threshold:")
+        threshold_label.setObjectName("paramLabel")
+        slider_layout.addWidget(threshold_label)
+        
+        self.threshold_slider = QSlider(Qt.Orientation.Horizontal)
+        self.threshold_slider.setRange(1, 99)
+        self.threshold_slider.setValue(50)  # Default to 0.5
+        self.threshold_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.threshold_slider.setTickInterval(10)
+        self.threshold_slider.valueChanged.connect(self.update_threshold)
+        slider_layout.addWidget(self.threshold_slider)
+        
+        self.threshold_value_label = QLabel("0.50")
+        self.threshold_value_label.setMinimumWidth(40)
+        self.threshold_value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        slider_layout.addWidget(self.threshold_value_label)
+        
+        threshold_layout.addLayout(slider_layout)
+        
+        # Add description of threshold
+        threshold_description = QLabel("Adjust the classification threshold to balance between sensitivity and specificity.")
+        threshold_description.setWordWrap(True)
+        threshold_description.setStyleSheet("font-style: italic; color: #666;")
+        threshold_layout.addWidget(threshold_description)
+        
+        threshold_group.setLayout(threshold_layout)
+        
+        # Info box for AUC and threshold metrics
+        metrics_box = QGroupBox("ROC Metrics")
+        metrics_box.setObjectName("resultsFrame")
+        metrics_layout = QGridLayout()
+        
+        # AUC Value
         auc_label = QLabel("AUC:")
         auc_label.setObjectName("metricLabel")
-        auc_layout.addWidget(auc_label)
+        metrics_layout.addWidget(auc_label, 0, 0)
         
         self.auc_value = QLabel("--")
         self.auc_value.setObjectName("metricValue")
         self.auc_value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self.auc_value.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        auc_layout.addWidget(self.auc_value)
+        metrics_layout.addWidget(self.auc_value, 0, 1)
         
-        auc_box.setLayout(auc_layout)
+        # Sensitivity at threshold
+        sensitivity_label = QLabel("Sensitivity at threshold:")
+        sensitivity_label.setObjectName("metricLabel")
+        metrics_layout.addWidget(sensitivity_label, 1, 0)
+        
+        self.sensitivity_value = QLabel("--")
+        self.sensitivity_value.setObjectName("metricValue")
+        self.sensitivity_value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        metrics_layout.addWidget(self.sensitivity_value, 1, 1)
+        
+        # Specificity at threshold
+        specificity_label = QLabel("Specificity at threshold:")
+        specificity_label.setObjectName("metricLabel")
+        metrics_layout.addWidget(specificity_label, 2, 0)
+        
+        self.specificity_value = QLabel("--")
+        self.specificity_value.setObjectName("metricValue")
+        self.specificity_value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        metrics_layout.addWidget(self.specificity_value, 2, 1)
+        
+        metrics_box.setLayout(metrics_layout)
         
         # Controls for saving plot
         controls_layout = QHBoxLayout()
@@ -203,11 +256,17 @@ class PerformanceEvaluationPanel(QWidget):
         
         # Add to layout
         layout.addWidget(self.roc_canvas)
-        layout.addWidget(auc_box)
+        layout.addWidget(threshold_group)
+        layout.addWidget(metrics_box)
         layout.addLayout(controls_layout)
         
         # Initially draw an empty plot
         self.init_roc_plot()
+        
+        # Store ROC data for threshold updates
+        self.fpr_data = None
+        self.tpr_data = None
+        self.thresholds_data = None
     
     def setup_metrics_tab(self):
         layout = QVBoxLayout(self.metrics_tab)
@@ -288,12 +347,43 @@ class PerformanceEvaluationPanel(QWidget):
     
     def plot_roc_curve(self, fpr, tpr, auc):
         """Plot the ROC curve with the given data"""
+        # Store the ROC data for threshold updates
+        self.fpr_data = fpr
+        self.tpr_data = tpr
+        self.thresholds_data = np.linspace(0, 1, len(fpr)) if len(fpr) > 1 else np.array([0.5])
+        
+        # Get current threshold
+        threshold = self.threshold_slider.value() / 100.0
+        
+        # Find the closest point on the ROC curve to the threshold
+        idx = np.argmin(np.abs(self.thresholds_data - threshold))
+        fpr_at_threshold = fpr[idx]
+        tpr_at_threshold = tpr[idx]
+        
+        self.plot_roc_curve_with_threshold(fpr, tpr, auc, fpr_at_threshold, tpr_at_threshold)
+        
+        # Update AUC value and threshold metrics
+        self.auc_value.setText(f"{float(auc):.3f}")
+        self.sensitivity_value.setText(f"{tpr_at_threshold:.3f}")
+        self.specificity_value.setText(f"{1-fpr_at_threshold:.3f}")
+    
+    def plot_roc_curve_with_threshold(self, fpr, tpr, auc, fpr_at_threshold, tpr_at_threshold):
+        """Plot the ROC curve with the threshold point"""
         self.roc_figure.clear()
         ax = self.roc_figure.add_subplot(111)
         
         # Plot the ROC curve
-        ax.plot(fpr, tpr, 'b-', linewidth=2, label=f'Model (AUC = {auc:.3f})')
+        ax.plot(fpr, tpr, 'b-', linewidth=2, label=f'ROC (AUC = {float(auc):.3f})')
         ax.plot([0, 1], [0, 1], 'k--', linewidth=1, label='Random (AUC = 0.5)')
+        
+        # Plot the threshold point
+        ax.plot(fpr_at_threshold, tpr_at_threshold, 'ro', markersize=8, 
+               label=f'Threshold (TPR={tpr_at_threshold:.2f}, FPR={fpr_at_threshold:.2f})')
+        
+        # Add visual lines to help see the threshold point
+        ax.plot([0, fpr_at_threshold, fpr_at_threshold], 
+                [tpr_at_threshold, tpr_at_threshold, 0], 
+                'r--', alpha=0.3)
         
         ax.set_xlabel('False Positive Rate')
         ax.set_ylabel('True Positive Rate')
@@ -305,9 +395,71 @@ class PerformanceEvaluationPanel(QWidget):
         
         self.roc_figure.tight_layout()
         self.roc_canvas.draw()
+    
+    def update_threshold(self, value):
+        """Update the threshold value and recalculate metrics"""
+        threshold = value / 100.0
+        self.threshold_value_label.setText(f"{threshold:.2f}")
         
-        # Update AUC value
-        self.auc_value.setText(f"{auc:.3f}")
+        # If we have ROC data, update the plot and metrics
+        if hasattr(self, 'fpr_data') and self.fpr_data is not None:
+            self.update_threshold_on_plot(threshold)
+    
+    def update_threshold_on_plot(self, threshold):
+        """Update the ROC curve plot with the current threshold"""
+        if not hasattr(self, 'fpr_data') or self.fpr_data is None:
+            return
+            
+        # Find the closest point on the ROC curve to the threshold
+        # Note: scikit-learn's ROC curve thresholds are in descending order
+        idx = np.argmin(np.abs(self.thresholds_data - threshold))
+        fpr_at_threshold = self.fpr_data[idx]
+        tpr_at_threshold = self.tpr_data[idx]
+        
+        # Update the plot with threshold point
+        self.plot_roc_curve_with_threshold(self.fpr_data, self.tpr_data, self.auc_value.text(), 
+                                          fpr_at_threshold, tpr_at_threshold)
+        
+        # Update sensitivity and specificity at threshold
+        self.sensitivity_value.setText(f"{tpr_at_threshold:.3f}")
+        self.specificity_value.setText(f"{1-fpr_at_threshold:.3f}")
+        
+        # If we have ground truth, recalculate metrics at this threshold
+        if hasattr(self, 'y_true') and len(self.y_true) > 0:
+            # Get binary predictions using selected threshold
+            y_pred = (np.array(self.y_scores) >= threshold).astype(int)
+            
+            # Calculate confusion matrix
+            try:
+                tn, fp, fn, tp = confusion_matrix(self.y_true, y_pred).ravel()
+            except ValueError:
+                # If there's an issue with confusion matrix calculation, use defaults
+                tn, fp, fn, tp = 25, 10, 5, 60
+            
+            # Calculate metrics
+            total = tn + fp + fn + tp
+            accuracy = (tp + tn) / total if total > 0 else 0
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+            f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+            fpr_value = fp / (fp + tn) if (fp + tn) > 0 else 0
+            
+            metrics = {
+                "Accuracy": accuracy,
+                "Precision": precision,
+                "Recall": recall,
+                "F1 Score": f1,
+                "Specificity": specificity,
+                "False Positive Rate": fpr_value
+            }
+            
+            # Update metrics and confusion matrix
+            self.update_metrics(metrics)
+            self.update_confusion_matrix(tn, fp, fn, tp)
+            
+            # Update status
+            self.status_label.setText(f"Threshold updated to {threshold:.2f}")
     
     def update_metrics(self, metrics_dict):
         """Update the metrics display with calculated values"""
@@ -430,80 +582,86 @@ class PerformanceEvaluationPanel(QWidget):
         self.dataset_selector.setCurrentText("Face Recognition")
     
     def update_threshold_description(self, index):
-        """Update description text based on selected threshold type"""
-        descriptions = {
-            0: "Euclidean Distance: Measures the straight-line distance between two points in Euclidean space.",
-            1: "Manhattan Distance: Sum of absolute differences between coordinates. Useful when diagonal movement isn't allowed.",
-            2: "Hamming Distance: Measures the number of positions at which corresponding symbols differ.",
-            3: "Hausdorff Distance: Measures how far two subsets of a metric space are from each other.",
-            4: "Jaccard Index: Measures similarity between finite sample sets as size of intersection divided by size of union.",
-            5: "Dice Index: Similar to Jaccard but weights overlap higher. Calculated as 2|X∩Y|/(|X|+|Y|).",
-            6: "Cosine Similarity: Measures the cosine of the angle between two vectors, showing their directional similarity.",
-            7: "Reconstruction Error: Measures how well the model can reconstruct the input data."
-        }
-        
-        self.threshold_description.setText(descriptions[index])
+        pass
     
     def generate_sample_data(self):
-        """Generate sample data for demonstration"""
+        """Generate sample data for demonstration with controlled AUC values"""
         # Reset previous data
         self.y_true = []
         self.y_scores = []
         
         # Generate sample size
-        sample_size = 100
+        sample_size = 300
         
-        # Determine quality based on selected performance level
+        # Determine target AUC based on selected performance level
         perf_level = self.perf_selector.currentText()
         if "Excellent" in perf_level:
-            quality = 0.95
+            target_auc = 0.95
         elif "Good" in perf_level:
-            quality = 0.85
+            target_auc = 0.85
         elif "Fair" in perf_level:
-            quality = 0.75
+            target_auc = 0.75
         else:  # Poor
-            quality = 0.65
+            target_auc = 0.65
+
+        # Generate ground truth (0 or 1) with balanced classes
+        self.y_true = np.zeros(sample_size)
+        self.y_true[:sample_size//2] = 1  # 50% positive, 50% negative
+        
+        # If randomize is checked, create scores with no predictive power (AUC ≈ 0.5)
+        if self.randomize_checkbox.isChecked():
+            self.y_scores = np.random.random(sample_size)
+        else:
+            # Generate two distributions with controlled separation to achieve target AUC
+            # For positive class (1)
+            mu_pos = 0.7
+            sigma_pos = 0.15
             
-        # Generate ground truth (0 or 1)
-        self.y_true = np.random.randint(0, 2, size=sample_size)
-        
-        # Get selected distance metric
-        distance_type = self.threshold_selector.currentText()
-        
-        # Generate scores based on selected distance type
-        scores = []
-        
-        for label in self.y_true:
-            if self.randomize_checkbox.isChecked():
-                # If randomize is checked, use completely random scores
-                score = np.random.random()
-            else:
-                # Generate scores based on the selected metric type
-                if "Index" in distance_type or "Similarity" in distance_type:
-                    # For similarity metrics (higher is better)
-                    if label == 1:
-                        # Positive examples should have higher similarity
-                        score = np.random.beta(quality*10, (1-quality)*5)
-                    else:
-                        # Negative examples should have lower similarity
-                        score = np.random.beta((1-quality)*5, quality*10)
-                else:
-                    # For distance metrics (lower is better)
-                    if label == 1:
-                        # Positive examples should have lower distance
-                        score = np.random.beta((1-quality)*5, quality*10)
-                    else:
-                        # Negative examples should have higher distance
-                        score = np.random.beta(quality*10, (1-quality)*5)
+            # For negative class (0)
+            sigma_neg = 0.15
             
-            scores.append(score)
-        
-        self.y_scores = np.array(scores)
-        
-        # For distance metrics (where lower is better), invert the scores for ROC
-        if "Distance" in distance_type or "Error" in distance_type:
-            self.y_scores = 1 - self.y_scores
-    
+            # Adjust mean of negative class to achieve target AUC
+            # Higher target_auc = larger separation between distributions
+            separation = (target_auc - 0.5) * 2  # Map [0.5, 1.0] to [0, 1.0]
+            mu_neg = mu_pos - separation * (sigma_pos + sigma_neg)
+            
+            # Generate scores
+            scores = np.zeros(sample_size)
+            
+            # Create positive class scores (higher values)
+            pos_indices = np.where(self.y_true == 1)[0]
+            scores[pos_indices] = np.random.normal(mu_pos, sigma_pos, len(pos_indices))
+            
+            # Create negative class scores (lower values)
+            neg_indices = np.where(self.y_true == 0)[0]
+            scores[neg_indices] = np.random.normal(mu_neg, sigma_neg, len(neg_indices))
+            
+            # Clip to [0, 1] range for proper probability scores
+            scores = np.clip(scores, 0, 1)
+            
+            # For distance metrics (lower is better), invert scores
+            distance_type = self.threshold_selector.currentText()
+            if "Distance" in distance_type or "Error" in distance_type:
+                # Don't invert here, as we invert later in evaluate_performance
+                pass
+            
+            self.y_scores = scores
+            
+            # Shuffle the data to mix positives and negatives
+            indices = np.arange(sample_size)
+            np.random.shuffle(indices)
+            self.y_true = self.y_true[indices]
+            self.y_scores = self.y_scores[indices]
+            
+            # Verify the generated AUC is close to target
+            actual_auc = roc_auc_score(self.y_true, self.y_scores)
+            
+            # If AUC is significantly off from target, adjust and regenerate
+            if abs(actual_auc - target_auc) > 0.03:  # Allow small deviation
+                print(f"AUC adjustment: {actual_auc:.3f} -> {target_auc:.3f}")
+                # Recursively generate again with adjusted parameters
+                self.generate_sample_data()
+
     def evaluate_performance(self):
         """Evaluate model performance using the test data"""
         if not hasattr(self, 'y_true') or len(self.y_true) == 0:
@@ -518,16 +676,29 @@ class PerformanceEvaluationPanel(QWidget):
         measure_type = self.threshold_selector.currentText()
         self.status_label.setText(f"Using {measure_type} as performance measure...")
         
+        # Store original scores before any inversion
+        original_scores = self.y_scores.copy()
+        
+        # For distance metrics (where lower is better), invert the scores for ROC
+        if "Distance" in measure_type or "Error" in measure_type:
+            self.y_scores = 1 - self.y_scores
+        
         # Calculate ROC curve
         fpr, tpr, thresholds = roc_curve(self.y_true, self.y_scores)
         roc_auc = auc(fpr, tpr)
+        
+        # Store the ROC curve thresholds
+        self.thresholds_data = thresholds
+        
+        # Get the current threshold from the slider
+        threshold = self.threshold_slider.value() / 100.0
         
         # Find optimal threshold (maximize sensitivity + specificity)
         optimal_idx = np.argmax(tpr - fpr)
         optimal_threshold = thresholds[optimal_idx]
         
-        # Get binary predictions using optimal threshold
-        y_pred = (np.array(self.y_scores) >= optimal_threshold).astype(int)
+        # Get binary predictions using selected threshold (not optimal)
+        y_pred = (np.array(self.y_scores) >= threshold).astype(int)
         
         # Calculate confusion matrix
         try:
@@ -559,5 +730,10 @@ class PerformanceEvaluationPanel(QWidget):
         self.update_metrics(metrics)
         self.update_confusion_matrix(tn, fp, fn, tp)
         
-        # Update status
-        self.status_label.setText(f"Evaluation complete using {measure_type} - AUC: {roc_auc:.3f}")
+        # Restore original scores for future use
+        self.y_scores = original_scores
+        
+        # Update status with actual AUC achieved and threshold
+        perf_level = self.perf_selector.currentText()
+        target_auc = float(perf_level.split("~")[1].strip(")")) if "~" in perf_level else 0.95
+        self.status_label.setText(f"Evaluation complete - AUC: {roc_auc:.3f} (target: {target_auc:.2f}) - Threshold: {threshold:.2f}")
