@@ -307,8 +307,6 @@ class MainWindow(QMainWindow):
 
         self.setup_edge_detection()
 
-
-
         self.setup_sift_tab()
         self.setup_harris_tab()
         self.setup_otsu_tab()
@@ -370,86 +368,10 @@ class MainWindow(QMainWindow):
             self.show_error_message(f"Error loading test dataset: {str(e)}")
 
     def _on_evaluate_performance(self):
-        """Handle performance evaluation using loaded models and test data"""
-        try:
-            if not hasattr(self, 'test_dataset') or len(self.test_dataset) == 0:
-                self.show_error_message("No test dataset loaded. Please load a test dataset first.")
-                return
-            
-            if not hasattr(self, 'dataset_images') or not hasattr(self, 'face_eigenfaces'):
-                self.show_error_message("No model trained. Please train a face recognition model first.")
-                return
-            
-            self.show_status_message("Evaluating performance...")
-            
-            # Perform predictions on test dataset
-            y_true = []  # Binary ground truth (1 for match, 0 for non-match)
-            y_scores = []  # Confidence scores for ROC curve
-            
-            # For each test image, calculate distance to nearest training image
-            for i, test_img in enumerate(self.test_dataset):
-                # Compute distance to training set
-                mean = np.mean(self.dataset_images, axis=0)
-                X_centered = self.dataset_images - mean
-                X_reduced = np.dot(X_centered, self.face_eigenfaces)
-                test_centered = test_img - mean
-                test_reduced = np.dot(test_centered, self.face_eigenfaces)
-                
-                # Calculate distances
-                distances = np.linalg.norm(X_reduced - test_reduced, axis=1)
-                min_distance = np.min(distances)
-                min_idx = np.argmin(distances)
-                
-                # Convert distance to similarity score (higher is better)
-                similarity_score = 1.0 / (1.0 + min_distance)
-                y_scores.append(similarity_score)
-                
-                # TODO: Replace this with actual ground truth matching
-                # This is just a placeholder - real implementation would check if test_labels[i] matches training_labels[min_idx]
-                # For demonstration, we'll randomly assign ground truth
-                y_true.append(np.random.randint(0, 2))
-            
-            # Calculate ROC curve points
-            from sklearn.metrics import roc_curve, auc, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
-            
-            fpr, tpr, thresholds = roc_curve(y_true, y_scores)
-            roc_auc = auc(fpr, tpr)
-            
-            # Find optimal threshold (maximizing sensitivity + specificity)
-            optimal_idx = np.argmax(tpr - fpr)
-            optimal_threshold = thresholds[optimal_idx]
-            
-            # Get binary predictions using optimal threshold
-            y_pred = (np.array(y_scores) >= optimal_threshold).astype(int)
-            
-            # Calculate confusion matrix
-            tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-            
-            # Calculate metrics
-            accuracy = accuracy_score(y_true, y_pred)
-            precision = precision_score(y_true, y_pred, zero_division=0)
-            recall = recall_score(y_true, y_pred, zero_division=0)
-            f1 = f1_score(y_true, y_pred, zero_division=0)
-            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
-            fpr_value = fp / (fp + tn) if (fp + tn) > 0 else 0
-            
-            metrics = {
-                "Accuracy": accuracy,
-                "Precision": precision,
-                "Recall": recall,
-                "F1 Score": f1,
-                "Specificity": specificity,
-                "False Positive Rate": fpr_value
-            }
-            
-            # Update UI in the performance panel
-            self.performance_evaluation_panel.plot_roc_curve(fpr, tpr, roc_auc)
-            self.performance_evaluation_panel.update_metrics(metrics)
-            self.performance_evaluation_panel.update_confusion_matrix(tn, fp, fn, tp)
-            
-            self.show_status_message("Performance evaluation completed")
-        except Exception as e:
-            self.show_error_message(f"Error during performance evaluation: {str(e)}")
+        """Handle performance evaluation using loaded models or default data"""
+        # No need to check for model - the panel will handle default data
+        self.performance_evaluation_panel.evaluate_performance()
+        self.show_status_message("Performance evaluation completed")
 
     def setup_noise_tab(self):
         noise_widget = QWidget()

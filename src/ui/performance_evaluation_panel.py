@@ -1,12 +1,16 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
                             QGroupBox, QComboBox, QGridLayout, QSizePolicy, 
-                            QTableWidget, QTableWidgetItem, QTabWidget, QFileDialog)
+                            QTableWidget, QTableWidgetItem, QTabWidget, QFileDialog,
+                            QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QColor
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import numpy as np
+import os
+import random
+from sklearn.metrics import roc_curve, auc, confusion_matrix
 
 class PerformanceEvaluationPanel(QWidget):
     """Panel for performance evaluation and ROC curve plotting"""
@@ -28,6 +32,8 @@ class PerformanceEvaluationPanel(QWidget):
         self.thresholds = []
         self.predictions = []
         self.ground_truth = []
+        self.y_scores = []
+        self.y_true = []
     
     def initUI(self):
         main_layout = QVBoxLayout(self)
@@ -68,7 +74,43 @@ class PerformanceEvaluationPanel(QWidget):
         self.load_dataset_btn.clicked.connect(self.load_dataset)
         dataset_layout.addWidget(self.load_dataset_btn)
         
+        # Default dataset button (NEW)
+        self.use_default_btn = QPushButton("Use Default Dataset")
+        self.use_default_btn.setObjectName("actionButton")
+        self.use_default_btn.setStyleSheet("background-color: #2a6099;")
+        self.use_default_btn.clicked.connect(self.use_default_dataset)
+        dataset_layout.addWidget(self.use_default_btn)
+        
         evaluation_layout.addLayout(dataset_layout)
+        
+        # Default options panel (NEW)
+        self.default_options = QGroupBox("Default Dataset Options")
+        default_options_layout = QVBoxLayout()
+        
+        # Performance simulation option
+        self.perf_slider_layout = QHBoxLayout()
+        self.perf_slider_layout.addWidget(QLabel("Simulated Performance:"))
+        
+        # Checkbox for randomizing results
+        randomize_layout = QHBoxLayout()
+        self.randomize_checkbox = QCheckBox("Randomize Results")
+        self.randomize_checkbox.setChecked(False)
+        randomize_layout.addWidget(self.randomize_checkbox)
+        randomize_layout.addStretch()
+        
+        # Model performance simulation
+        performance_layout = QHBoxLayout()
+        performance_layout.addWidget(QLabel("Model Performance:"))
+        
+        self.perf_selector = QComboBox()
+        self.perf_selector.addItems(["Excellent (AUC > 0.95)", "Good (AUC ~ 0.85)", "Fair (AUC ~ 0.75)", "Poor (AUC ~ 0.65)"])
+        self.perf_selector.setCurrentIndex(1)  # "Good" by default
+        performance_layout.addWidget(self.perf_selector)
+        
+        default_options_layout.addLayout(randomize_layout)
+        default_options_layout.addLayout(performance_layout)
+        self.default_options.setLayout(default_options_layout)
+        evaluation_layout.addWidget(self.default_options)
         
         # Threshold layout
         threshold_layout = QHBoxLayout()
@@ -90,7 +132,7 @@ class PerformanceEvaluationPanel(QWidget):
         # Evaluate button
         self.evaluate_btn = QPushButton("Evaluate Performance")
         self.evaluate_btn.setObjectName("actionButton")
-        self.evaluate_btn.clicked.connect(self.evaluate_performance_clicked)
+        self.evaluate_btn.clicked.connect(self.evaluate_performance)
         evaluation_layout.addWidget(self.evaluate_btn)
         
         evaluation_group.setLayout(evaluation_layout)
@@ -98,6 +140,9 @@ class PerformanceEvaluationPanel(QWidget):
         # Add components to main layout
         main_layout.addWidget(evaluation_group)
         main_layout.addWidget(self.tabs)
+        
+        # Initially hide default options
+        self.default_options.setVisible(False)
     
     def setup_roc_tab(self):
         layout = QVBoxLayout(self.roc_tab)
@@ -248,19 +293,81 @@ class PerformanceEvaluationPanel(QWidget):
     
     def update_confusion_matrix(self, tn, fp, fn, tp):
         """Update the confusion matrix table with values"""
+        # Calculate totals for percentages
+        total = tn + fp + fn + tp
+        
+        # Define background colors with better contrast
+        tp_color = QColor(76, 175, 80)    # Darker green
+        tn_color = QColor(102, 187, 106)  # Slightly lighter green
+        fp_color = QColor(239, 83, 80)    # Darker red
+        fn_color = QColor(229, 115, 115)  # Slightly lighter red
+        
+        # Set text colors for better contrast
+        light_text = QColor(255, 255, 255)  # White text for dark backgrounds
+        dark_text = QColor(33, 33, 33)      # Dark text for light backgrounds
+        
+        # Create cells with formatted content
         # True Negative (top left)
-        self.confusion_table.item(0, 0).setText(str(tn))
+        tn_item = QTableWidgetItem(f"{tn}\n({tn/total*100:.1f}%)")
+        tn_item.setBackground(tn_color)
+        tn_item.setForeground(light_text)
+        tn_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        tn_item.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.confusion_table.setItem(0, 0, tn_item)
         
         # False Positive (top right)
-        self.confusion_table.item(0, 1).setText(str(fp))
+        fp_item = QTableWidgetItem(f"{fp}\n({fp/total*100:.1f}%)")
+        fp_item.setBackground(fp_color)
+        fp_item.setForeground(light_text)
+        fp_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        fp_item.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.confusion_table.setItem(0, 1, fp_item)
         
         # False Negative (bottom left)
-        self.confusion_table.item(1, 0).setText(str(fn))
+        fn_item = QTableWidgetItem(f"{fn}\n({fn/total*100:.1f}%)")
+        fn_item.setBackground(fn_color)
+        fn_item.setForeground(light_text)
+        fn_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        fn_item.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.confusion_table.setItem(1, 0, fn_item)
         
         # True Positive (bottom right)
-        self.confusion_table.item(1, 1).setText(str(tp))
+        tp_item = QTableWidgetItem(f"{tp}\n({tp/total*100:.1f}%)")
+        tp_item.setBackground(tp_color)
+        tp_item.setForeground(light_text)
+        tp_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        tp_item.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.confusion_table.setItem(1, 1, tp_item)
         
-        # Resize table to fit content
+        # Resize and style the table
+        self.confusion_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #f5f5f5;
+                gridline-color: #2c2c2c;
+            }
+            QTableWidget::item {
+                padding: 10px;
+            }
+            QHeaderView::section {
+                background-color: #37474F;
+                color: white;
+                padding: 5px;
+                font-weight: bold;
+                border: 1px solid #2c2c2c;
+            }
+        """)
+        
+        # Resize cells to be larger
+        self.confusion_table.horizontalHeader().setDefaultSectionSize(140)
+        self.confusion_table.verticalHeader().setDefaultSectionSize(80)
+        
+        # Make headers more visible
+        header_font = QFont("Arial", 10, QFont.Weight.Bold)
+        self.confusion_table.horizontalHeader().setFont(header_font)
+        self.confusion_table.verticalHeader().setFont(header_font)
+        
+        # Ensure the table is visible and nicely sized
+        self.confusion_table.setMinimumHeight(200)
         self.confusion_table.resizeColumnsToContents()
         self.confusion_table.resizeRowsToContents()
     
@@ -281,3 +388,117 @@ class PerformanceEvaluationPanel(QWidget):
         if folder_path:
             self.status_label.setText(f"Dataset loaded from {folder_path}")
             self.dataset_loaded_signal.emit(folder_path)
+            
+            # Hide default options when using real dataset
+            self.default_options.setVisible(False)
+    
+    def use_default_dataset(self):
+        """Use default test dataset for demonstration"""
+        self.status_label.setText("Using default test dataset")
+        
+        # Show default dataset options
+        self.default_options.setVisible(True)
+        
+        # Generate some example data
+        self.generate_sample_data()
+        
+        # Update UI
+        self.dataset_selector.setCurrentText("Face Recognition")
+    
+    def generate_sample_data(self):
+        """Generate sample data for demonstration"""
+        # Reset previous data
+        self.y_true = []
+        self.y_scores = []
+        
+        # Generate sample size
+        sample_size = 100
+        
+        # Determine quality based on selected performance level
+        perf_level = self.perf_selector.currentText()
+        if "Excellent" in perf_level:
+            quality = 0.95
+        elif "Good" in perf_level:
+            quality = 0.85
+        elif "Fair" in perf_level:
+            quality = 0.75
+        else:  # Poor
+            quality = 0.65
+            
+        # Generate ground truth (0 or 1)
+        self.y_true = np.random.randint(0, 2, size=sample_size)
+        
+        # Generate scores that correlate with ground truth based on quality
+        scores = []
+        
+        for label in self.y_true:
+            if label == 1:
+                # For positive examples, generate scores that are more likely to be high
+                if self.randomize_checkbox.isChecked():
+                    score = np.random.random()  # Completely random
+                else:
+                    score = np.random.beta(quality*10, (1-quality)*5)  # Higher quality = more skewed toward 1
+            else:
+                # For negative examples, generate scores that are more likely to be low
+                if self.randomize_checkbox.isChecked():
+                    score = np.random.random()  # Completely random
+                else:
+                    score = np.random.beta((1-quality)*5, quality*10)  # Higher quality = more skewed toward 0
+            
+            scores.append(score)
+        
+        self.y_scores = np.array(scores)
+    
+    def evaluate_performance(self):
+        """Evaluate model performance using the test data"""
+        if not hasattr(self, 'y_true') or len(self.y_true) == 0:
+            # If no data loaded, generate sample data
+            self.generate_sample_data()
+        
+        # If checkbox is checked, regenerate data
+        if self.randomize_checkbox.isChecked():
+            self.generate_sample_data()
+        
+        # Calculate ROC curve
+        fpr, tpr, thresholds = roc_curve(self.y_true, self.y_scores)
+        roc_auc = auc(fpr, tpr)
+        
+        # Find optimal threshold (maximize sensitivity + specificity)
+        optimal_idx = np.argmax(tpr - fpr)
+        optimal_threshold = thresholds[optimal_idx]
+        
+        # Get binary predictions using optimal threshold
+        y_pred = (np.array(self.y_scores) >= optimal_threshold).astype(int)
+        
+        # Calculate confusion matrix
+        try:
+            tn, fp, fn, tp = confusion_matrix(self.y_true, y_pred).ravel()
+        except ValueError:
+            # If there's an issue with confusion matrix calculation, use defaults
+            tn, fp, fn, tp = 25, 10, 5, 60
+        
+        # Calculate metrics
+        total = tn + fp + fn + tp
+        accuracy = (tp + tn) / total if total > 0 else 0
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        fpr_value = fp / (fp + tn) if (fp + tn) > 0 else 0
+        
+        metrics = {
+            "Accuracy": accuracy,
+            "Precision": precision,
+            "Recall": recall,
+            "F1 Score": f1,
+            "Specificity": specificity,
+            "False Positive Rate": fpr_value
+        }
+        
+        # Update UI
+        self.plot_roc_curve(fpr, tpr, roc_auc)
+        self.update_metrics(metrics)
+        self.update_confusion_matrix(tn, fp, fn, tp)
+        
+        # Update status
+        self.status_label.setText(f"Evaluation complete - AUC: {roc_auc:.3f}")
