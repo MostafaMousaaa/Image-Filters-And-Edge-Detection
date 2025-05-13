@@ -74,7 +74,7 @@ class PerformanceEvaluationPanel(QWidget):
         self.load_dataset_btn.clicked.connect(self.load_dataset)
         dataset_layout.addWidget(self.load_dataset_btn)
         
-        # Default dataset button (NEW)
+        # Default dataset button
         self.use_default_btn = QPushButton("Use Default Dataset")
         self.use_default_btn.setObjectName("actionButton")
         self.use_default_btn.setStyleSheet("background-color: #2a6099;")
@@ -83,7 +83,7 @@ class PerformanceEvaluationPanel(QWidget):
         
         evaluation_layout.addLayout(dataset_layout)
         
-        # Default options panel (NEW)
+        # Default options panel
         self.default_options = QGroupBox("Default Dataset Options")
         default_options_layout = QVBoxLayout()
         
@@ -113,16 +113,40 @@ class PerformanceEvaluationPanel(QWidget):
         evaluation_layout.addWidget(self.default_options)
         
         # Threshold layout
-        threshold_layout = QHBoxLayout()
-        threshold_label = QLabel("Threshold Type:")
+        threshold_group = QGroupBox("Distance Metrics")
+        threshold_group.setObjectName("paramGroupBox")
+        threshold_layout = QVBoxLayout()
+        
+        # Updated threshold type options
+        threshold_label = QLabel("Distance/Similarity Measure:")
         threshold_label.setObjectName("paramLabel")
         threshold_layout.addWidget(threshold_label)
         
         self.threshold_selector = QComboBox()
-        self.threshold_selector.addItems(["Similarity Score", "Distance Metric", "Reconstruction Error"])
+        self.threshold_selector.addItems([
+            "Euclidean Distance", 
+            "Manhattan Distance",
+            "Hamming Distance",
+            "Hausdorff Distance",
+            "Jaccard Index",
+            "Dice Index",
+            "Cosine Similarity",
+            "Reconstruction Error"
+        ])
+        self.threshold_selector.currentIndexChanged.connect(self.update_threshold_description)
         threshold_layout.addWidget(self.threshold_selector)
         
-        evaluation_layout.addLayout(threshold_layout)
+        # Add description label for the selected metric
+        self.threshold_description = QLabel()
+        self.threshold_description.setWordWrap(True)
+        self.threshold_description.setStyleSheet("font-style: italic; color: #666;")
+        threshold_layout.addWidget(self.threshold_description)
+        
+        # Update the initial description
+        self.update_threshold_description(0)
+        
+        threshold_group.setLayout(threshold_layout)
+        evaluation_layout.addWidget(threshold_group)
         
         # Status indicator
         self.status_label = QLabel("No data loaded for evaluation")
@@ -405,6 +429,21 @@ class PerformanceEvaluationPanel(QWidget):
         # Update UI
         self.dataset_selector.setCurrentText("Face Recognition")
     
+    def update_threshold_description(self, index):
+        """Update description text based on selected threshold type"""
+        descriptions = {
+            0: "Euclidean Distance: Measures the straight-line distance between two points in Euclidean space.",
+            1: "Manhattan Distance: Sum of absolute differences between coordinates. Useful when diagonal movement isn't allowed.",
+            2: "Hamming Distance: Measures the number of positions at which corresponding symbols differ.",
+            3: "Hausdorff Distance: Measures how far two subsets of a metric space are from each other.",
+            4: "Jaccard Index: Measures similarity between finite sample sets as size of intersection divided by size of union.",
+            5: "Dice Index: Similar to Jaccard but weights overlap higher. Calculated as 2|X∩Y|/(|X|+|Y|).",
+            6: "Cosine Similarity: Measures the cosine of the angle between two vectors, showing their directional similarity.",
+            7: "Reconstruction Error: Measures how well the model can reconstruct the input data."
+        }
+        
+        self.threshold_description.setText(descriptions[index])
+    
     def generate_sample_data(self):
         """Generate sample data for demonstration"""
         # Reset previous data
@@ -428,26 +467,42 @@ class PerformanceEvaluationPanel(QWidget):
         # Generate ground truth (0 or 1)
         self.y_true = np.random.randint(0, 2, size=sample_size)
         
-        # Generate scores that correlate with ground truth based on quality
+        # Get selected distance metric
+        distance_type = self.threshold_selector.currentText()
+        
+        # Generate scores based on selected distance type
         scores = []
         
         for label in self.y_true:
-            if label == 1:
-                # For positive examples, generate scores that are more likely to be high
-                if self.randomize_checkbox.isChecked():
-                    score = np.random.random()  # Completely random
-                else:
-                    score = np.random.beta(quality*10, (1-quality)*5)  # Higher quality = more skewed toward 1
+            if self.randomize_checkbox.isChecked():
+                # If randomize is checked, use completely random scores
+                score = np.random.random()
             else:
-                # For negative examples, generate scores that are more likely to be low
-                if self.randomize_checkbox.isChecked():
-                    score = np.random.random()  # Completely random
+                # Generate scores based on the selected metric type
+                if "Index" in distance_type or "Similarity" in distance_type:
+                    # For similarity metrics (higher is better)
+                    if label == 1:
+                        # Positive examples should have higher similarity
+                        score = np.random.beta(quality*10, (1-quality)*5)
+                    else:
+                        # Negative examples should have lower similarity
+                        score = np.random.beta((1-quality)*5, quality*10)
                 else:
-                    score = np.random.beta((1-quality)*5, quality*10)  # Higher quality = more skewed toward 0
+                    # For distance metrics (lower is better)
+                    if label == 1:
+                        # Positive examples should have lower distance
+                        score = np.random.beta((1-quality)*5, quality*10)
+                    else:
+                        # Negative examples should have higher distance
+                        score = np.random.beta(quality*10, (1-quality)*5)
             
             scores.append(score)
         
         self.y_scores = np.array(scores)
+        
+        # For distance metrics (where lower is better), invert the scores for ROC
+        if "Distance" in distance_type or "Error" in distance_type:
+            self.y_scores = 1 - self.y_scores
     
     def evaluate_performance(self):
         """Evaluate model performance using the test data"""
@@ -458,6 +513,10 @@ class PerformanceEvaluationPanel(QWidget):
         # If checkbox is checked, regenerate data
         if self.randomize_checkbox.isChecked():
             self.generate_sample_data()
+        
+        # Get the distance/similarity measure
+        measure_type = self.threshold_selector.currentText()
+        self.status_label.setText(f"Using {measure_type} as performance measure...")
         
         # Calculate ROC curve
         fpr, tpr, thresholds = roc_curve(self.y_true, self.y_scores)
@@ -501,4 +560,4 @@ class PerformanceEvaluationPanel(QWidget):
         self.update_confusion_matrix(tn, fp, fn, tp)
         
         # Update status
-        self.status_label.setText(f"Evaluation complete - AUC: {roc_auc:.3f}")
+        self.status_label.setText(f"Evaluation complete using {measure_type} - AUC: {roc_auc:.3f}")
