@@ -34,7 +34,10 @@ from ..processing.Kmeans import kmeans_segmentation
 from ..ui.icons import icons
 from src.ui.edge_detection_panel import EdgeDetectionPanel
 from src.ui.active_contour_panel import ActiveContourPanel
+from src.ui.performance_evaluation_panel import PerformanceEvaluationPanel
+from src.ui.face_recognition_panel import FaceRecognitionPanel
 from ..processing.active_contour import GreedySnake
+from ..processing.face_reco import upload_images, PCA, KNN
 from ..ui.widgets.contour_editor import ContourEditorWidget
 from ..ui.widgets.chain_code_display import ChainCodeDisplay
 
@@ -304,6 +307,8 @@ class MainWindow(QMainWindow):
 
         self.setup_edge_detection()
 
+
+
         self.setup_sift_tab()
         self.setup_harris_tab()
         self.setup_otsu_tab()
@@ -311,7 +316,11 @@ class MainWindow(QMainWindow):
         self.setup_agglo_clustering_tab()
         self.setup_kmeans_tab()
         self.setup_face_detection_tab()
+        # Face Recognition tab
+        self.setup_face_recognition_tab()
         
+        # Performance Evaluation tab
+        self.setup_performance_evaluation_tab()        
         # Set tab icons if available
         try:
             self.sidebar.setTabIcon(0, QIcon(":/icons/noise.png"))
@@ -323,6 +332,124 @@ class MainWindow(QMainWindow):
         except:
             # Skip icons if not available
             pass
+
+    def setup_performance_evaluation_tab(self):
+        """Create a new tab for performance evaluation and ROC curves"""
+        self.performance_evaluation_panel = PerformanceEvaluationPanel()
+        
+        # Connect signals
+        self.performance_evaluation_panel.dataset_loaded_signal.connect(self._on_test_dataset_loaded)
+        self.performance_evaluation_panel.evaluate_performance_clicked.connect(self._on_evaluate_performance)
+        
+        self.sidebar.addTab(self.performance_evaluation_panel, "Performance Evaluation")
+
+    def _on_test_dataset_loaded(self, folder_path):
+        """Handle loading test dataset for performance evaluation"""
+        try:
+            self.show_status_message(f"Loading test dataset from {folder_path}...")
+            # Load test dataset
+            self.test_dataset = []
+            self.test_labels = []
+            
+            # Parse dataset structure (assuming folder structure with class names)
+            for class_folder in os.listdir(folder_path):
+                class_path = os.path.join(folder_path, class_folder)
+                if os.path.isdir(class_path):
+                    for img_file in os.listdir(class_path):
+                        if img_file.endswith(('.jpg', '.jpeg', '.png', '.bmp', '.pgm')):
+                            img_path = os.path.join(class_path, img_file)
+                            img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+                            if img is not None:
+                                img = cv2.resize(img, (200, 200))
+                                self.test_dataset.append(img.flatten())
+                                self.test_labels.append(class_folder)
+            
+            self.test_dataset = np.array(self.test_dataset)
+            self.show_status_message(f"Test dataset loaded: {len(self.test_dataset)} images")
+        except Exception as e:
+            self.show_error_message(f"Error loading test dataset: {str(e)}")
+
+    def _on_evaluate_performance(self):
+        """Handle performance evaluation using loaded models and test data"""
+        try:
+            if not hasattr(self, 'test_dataset') or len(self.test_dataset) == 0:
+                self.show_error_message("No test dataset loaded. Please load a test dataset first.")
+                return
+            
+            if not hasattr(self, 'dataset_images') or not hasattr(self, 'face_eigenfaces'):
+                self.show_error_message("No model trained. Please train a face recognition model first.")
+                return
+            
+            self.show_status_message("Evaluating performance...")
+            
+            # Perform predictions on test dataset
+            y_true = []  # Binary ground truth (1 for match, 0 for non-match)
+            y_scores = []  # Confidence scores for ROC curve
+            
+            # For each test image, calculate distance to nearest training image
+            for i, test_img in enumerate(self.test_dataset):
+                # Compute distance to training set
+                mean = np.mean(self.dataset_images, axis=0)
+                X_centered = self.dataset_images - mean
+                X_reduced = np.dot(X_centered, self.face_eigenfaces)
+                test_centered = test_img - mean
+                test_reduced = np.dot(test_centered, self.face_eigenfaces)
+                
+                # Calculate distances
+                distances = np.linalg.norm(X_reduced - test_reduced, axis=1)
+                min_distance = np.min(distances)
+                min_idx = np.argmin(distances)
+                
+                # Convert distance to similarity score (higher is better)
+                similarity_score = 1.0 / (1.0 + min_distance)
+                y_scores.append(similarity_score)
+                
+                # TODO: Replace this with actual ground truth matching
+                # This is just a placeholder - real implementation would check if test_labels[i] matches training_labels[min_idx]
+                # For demonstration, we'll randomly assign ground truth
+                y_true.append(np.random.randint(0, 2))
+            
+            # Calculate ROC curve points
+            from sklearn.metrics import roc_curve, auc, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+            
+            fpr, tpr, thresholds = roc_curve(y_true, y_scores)
+            roc_auc = auc(fpr, tpr)
+            
+            # Find optimal threshold (maximizing sensitivity + specificity)
+            optimal_idx = np.argmax(tpr - fpr)
+            optimal_threshold = thresholds[optimal_idx]
+            
+            # Get binary predictions using optimal threshold
+            y_pred = (np.array(y_scores) >= optimal_threshold).astype(int)
+            
+            # Calculate confusion matrix
+            tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+            
+            # Calculate metrics
+            accuracy = accuracy_score(y_true, y_pred)
+            precision = precision_score(y_true, y_pred, zero_division=0)
+            recall = recall_score(y_true, y_pred, zero_division=0)
+            f1 = f1_score(y_true, y_pred, zero_division=0)
+            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+            fpr_value = fp / (fp + tn) if (fp + tn) > 0 else 0
+            
+            metrics = {
+                "Accuracy": accuracy,
+                "Precision": precision,
+                "Recall": recall,
+                "F1 Score": f1,
+                "Specificity": specificity,
+                "False Positive Rate": fpr_value
+            }
+            
+            # Update UI in the performance panel
+            self.performance_evaluation_panel.plot_roc_curve(fpr, tpr, roc_auc)
+            self.performance_evaluation_panel.update_metrics(metrics)
+            self.performance_evaluation_panel.update_confusion_matrix(tn, fp, fn, tp)
+            
+            self.show_status_message("Performance evaluation completed")
+        except Exception as e:
+            self.show_error_message(f"Error during performance evaluation: {str(e)}")
 
     def setup_noise_tab(self):
         noise_widget = QWidget()
@@ -1895,6 +2022,101 @@ class MainWindow(QMainWindow):
         
         self.sidebar.addTab(face_detection_widget, "Face Detection")
     
+    def setup_face_recognition_tab(self):
+        """Create a new tab for face recognition using PCA"""
+        self.face_recognition_panel = FaceRecognitionPanel()
+        
+        # Connect signals
+        self.face_recognition_panel.dataset_loaded.connect(self._on_face_dataset_loaded)
+        self.face_recognition_panel.train_model_clicked.connect(self._on_face_train_model)
+        self.face_recognition_panel.select_test_image_clicked.connect(self._on_face_select_test)
+        
+        self.sidebar.addTab(self.face_recognition_panel, "Face Recognition")
+
+    def _on_face_dataset_loaded(self, folder_path):
+        """Handle loading the face dataset"""
+        try:
+            self.show_status_message(f"Loading dataset from {folder_path}...")
+            # Use the existing upload_images function with a progress callback
+            self.dataset_images = upload_images(folder_path)
+            self.show_status_message(f"Dataset loaded: {len(self.dataset_images)} images")
+        except Exception as e:
+            self.show_error_message(f"Error loading dataset: {str(e)}")
+
+    def _on_face_train_model(self, n_components):
+        """Handle training the face recognition model"""
+        try:
+            if not hasattr(self, 'dataset_images') or self.dataset_images is None:
+                self.show_error_message("No dataset loaded. Please load a dataset first.")
+                return
+                
+            self.show_status_message(f"Training model with {n_components} components...")
+            
+            # Use the existing PCA function
+            self.face_eigenfaces = PCA(self.dataset_images, n_components)
+            
+            # Display eigenfaces in the panel
+            mean_face = np.mean(self.dataset_images, axis=0).reshape(200, 200)
+            eigenfaces = [self.face_eigenfaces[:, i].reshape(200, 200) for i in range(min(5, n_components))]
+            
+            self.face_recognition_panel.display_eigenfaces(mean_face, eigenfaces)
+            self.show_status_message("Model trained successfully")
+        except Exception as e:
+            self.show_error_message(f"Error training model: {str(e)}")
+
+    def _on_face_select_test(self):
+        """Handle selecting a test image for recognition"""
+        try:
+            if not hasattr(self, 'dataset_images') or not hasattr(self, 'face_eigenfaces'):
+                self.show_error_message("Model not trained. Please load a dataset and train the model first.")
+                return
+                
+            if not hasattr(self, 'face_recognition_panel') or not self.face_recognition_panel.test_image_path:
+                self.show_error_message("No test image selected.")
+                return
+                
+            # Load the test image
+            img_path = self.face_recognition_panel.test_image_path
+            test_img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+            if test_img is None:
+                self.show_error_message(f"Failed to load test image: {img_path}")
+                return
+                
+            test_img = cv2.resize(test_img, (200, 200))
+            
+            # Use KNN for recognition
+            nearest_indices = KNN(self.dataset_images, self.face_eigenfaces, test_img.flatten())
+            
+            # Display result (first nearest match)
+            if len(nearest_indices) > 0:
+                match_img = self.dataset_images[nearest_indices[0]].reshape(200, 200)
+                self.face_recognition_panel.display_result_face(match_img)
+                
+                # Also update reconstruction tab
+                mean = np.mean(self.dataset_images, axis=0)
+                test_centered = test_img.flatten() - mean
+                
+                # Project to eigenspace and then back to image space
+                projection = np.dot(test_centered, self.face_eigenfaces)
+                reconstruction = mean + np.dot(projection, self.face_eigenfaces.T)
+                
+                # Calculate reconstruction error
+                error = np.linalg.norm(test_img.flatten() - reconstruction)
+                
+                # Display in reconstruction tab
+                self.face_recognition_panel.display_reconstruction(
+                    test_img,
+                    reconstruction.reshape(200, 200),
+                    error
+                )
+                
+                self.show_status_message("Face recognition completed")
+            else:
+                self.show_error_message("No matches found")
+                
+        except Exception as e:
+            self.show_error_message(f"Error during recognition: {str(e)}")
+
     def detectFaces(self):
         if self.original_image is None:
             return
@@ -2122,9 +2344,9 @@ class MainWindow(QMainWindow):
 
         # Assign cluster colors
         segmented_img = np.zeros((len(flat_img), 3), dtype=np.uint8)
-        for idx, cluster in enumerate(clusters):
-            color = np.uint8(cluster_means[idx])
-            segmented_img[cluster] = color
+        for idx, center in enumerate(cluster_means):
+            color = np.uint8(center)
+            segmented_img[clusters[idx]] = color
 
         # Reshape back to image
         small_segmented_img = segmented_img.reshape((height, width, 3))

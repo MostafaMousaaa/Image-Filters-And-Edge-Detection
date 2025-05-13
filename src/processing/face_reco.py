@@ -81,20 +81,20 @@ def show_images(images):
     plt.tight_layout()
     plt.show()
 
-# X =upload_images()
-X=np.load('data_set.npy')
-# eigenvectors=PCA(X)
-eigenvectors= np.load('eigenvectors.npy')#instead of calling PCA again, we load the eigenvectors calculated before
-# img = cv.imread('C:/Users/rashe/Desktop/MIT-CBCL-facerec-database/test/0007_per170_-1426063360.pgm', cv.IMREAD_GRAYSCALE)
-# img = cv.imread('C:/Users/rashe/Desktop/MIT-CBCL-facerec-database/test/0008_108.pgm', cv.IMREAD_GRAYSCALE)
-img = cv.imread('C:/Users/rashe/Desktop/MIT-CBCL-facerec-database/test/0002_j_01229.pgm', cv.IMREAD_GRAYSCALE)
+# # X =upload_images()
+# X=np.load('data_set.npy')
+# # eigenvectors=PCA(X)
+# eigenvectors= np.load('eigenvectors.npy')#instead of calling PCA again, we load the eigenvectors calculated before
+# # img = cv.imread('C:/Users/rashe/Desktop/MIT-CBCL-facerec-database/test/0007_per170_-1426063360.pgm', cv.IMREAD_GRAYSCALE)
+# # img = cv.imread('C:/Users/rashe/Desktop/MIT-CBCL-facerec-database/test/0008_108.pgm', cv.IMREAD_GRAYSCALE)
+# img = cv.imread('C:/Users/rashe/Desktop/MIT-CBCL-facerec-database/test/0002_j_01229.pgm', cv.IMREAD_GRAYSCALE)
 
-img = cv.resize(img, (200, 200)) 
-KNN_indices = KNN(X, eigenvectors, img.flatten())
-images = []
-images.append(img)  
-for i in KNN_indices:
-    images.append(X[i].reshape(200, 200))  
-show_images(images)
+# img = cv.resize(img, (200, 200)) 
+# KNN_indices = KNN(X, eigenvectors, img.flatten())
+# images = []
+# images.append(img)  
+# for i in KNN_indices:
+#     images.append(X[i].reshape(200, 200))  
+# show_images(images)
 
 
